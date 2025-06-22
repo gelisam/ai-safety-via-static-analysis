@@ -44,6 +44,8 @@ export class Node {
   numAccumulatedDers = 0;
   /** Activation function that takes total input and returns node's output */
   activation: ActivationFunction;
+  /** Calculated output range of this node. Optional. */
+  outputRange?: [number, number];
 
   /**
    * Creates a new node with the provided id and activation function.

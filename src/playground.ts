@@ -46,15 +46,34 @@ export function generateNetworkCode(network: nn.Node[][], state: State): string 
     let codeLines: string[] = [];
     let nodeIdToVarName: {[key: string]: string} = {};
 
-    // Populate nodeIdToVarName
-    for (let i=0; i<network.length; i++) {
+    // Populate nodeIdToVarName for all nodes first
+    // And add input ranges
+    network.forEach((layer, layerIdx) => {
+        layer.forEach((node, nodeIdx) => {
+            if (layerIdx === 0) { // Input layer
+                nodeIdToVarName[node.id] = node.id; // e.g., "bit0"
+                if (node.outputRange) {
+                    codeLines.push(`// ${node.id} ∈ [${node.outputRange[0].toFixed(3)}, ${node.outputRange[1].toFixed(3)}]`);
+                }
+            } else if (layerIdx === network.length - 1) { // Output layer
+                nodeIdToVarName[node.id] = "out";
+            } else { // Hidden layers
+                nodeIdToVarName[node.id] = `x${layerIdx - 1}${nodeIdx}`;
+            }
+        });
+    });
+
+    // Add a blank line if input ranges were added
+    if (network.length > 0 && network[0].some(node => !!node.outputRange)) {
+        codeLines.push("");
+    }
+
+    // Process hidden and output layers for code generation
+    for (let i=1; i<network.length; i++) {
       let layer = network[i];
       for (let j=0; j<layer.length; j++) {
         const node = layer[j];
-        if (i == 0) {
-          // Input layer (bit0, bit1, ...)
-          nodeIdToVarName[node.id] = node.id;
-        } else if (i == network.length - 1) {
+        if (i == network.length - 1) {
           // Output layer (out)
           nodeIdToVarName[node.id] = "out";
         } else {
@@ -70,7 +89,7 @@ export function generateNetworkCode(network: nn.Node[][], state: State): string 
       let layer = network[i];
       for (let j=0; j<layer.length; j++) {
         const node = layer[j];
-        const targetName = nodeIdToVarName[node.id];
+        const targetName = nodeIdToVarName[node.id]; // This was populated above
         const termsArray: string[] = [];
         let firstTerm = true;
         for (let k=0; k<node.inputLinks.length; k++) {
@@ -79,86 +98,82 @@ export function generateNetworkCode(network: nn.Node[][], state: State): string 
           // Omitting terms of the form "0.0 * x"
           if (Math.abs(link.weight) < 0.001) continue;
 
-          const sourceName = nodeIdToVarName[link.source.id];
+          const sourceName = nodeIdToVarName[link.source.id]; // Source name also from above
           const weight = link.weight;
 
           // Omitting 1.0 coefficients
           if (Math.abs(weight - 1.0) < 0.001) {
+            if (weight > 0) { // Positive weight ~1.0
+              if (firstTerm) termsArray.push(sourceName);
+              else termsArray.push("+", sourceName);
+            } else { // Negative weight ~ -1.0
+              if (firstTerm) termsArray.push(`-${sourceName}`);
+              else termsArray.push("-", sourceName);
+            }
+            firstTerm = false;
+          } else { // Weight is not 1.0 or -1.0
             if (weight > 0) {
+              if (!firstTerm) termsArray.push("+");
+              termsArray.push(formatNumber(weight), "*", sourceName);
+            } else { // Negative weight
+              // termsArray.push(firstTerm ? "" : "-"); // This logic is a bit complex for here
+              if (!firstTerm) termsArray.push("-"); // Always add operator if not first
+              else if(firstTerm && weight < 0) termsArray.push(""); // let formatNumber handle '-' sign for first term
+                                       // Actually, formatNumber might not prefix negative sign if it's -0.0 -> 0.0
+                                       // Let's be explicit
+
+              // If it's the first term and negative, let formatNumber handle the sign.
+              // Otherwise, use '-' and Math.abs for subsequent terms.
               if (firstTerm) {
-                // x10 = x00
-                termsArray.push(sourceName);
-                firstTerm = false;
+                termsArray.push(formatNumber(weight), "*", sourceName);
               } else {
-                // x10 = ... + x00
-                termsArray.push("+");
-                termsArray.push(sourceName);
-              }
-            } else {
-              if (firstTerm) {
-                // x10 = -x00
-                termsArray.push(`-${sourceName}`);
-                firstTerm = false;
-              } else {
-                // x10 = ... - x00
-                termsArray.push("-");
-                termsArray.push(sourceName);
+                 termsArray.push(formatNumber(Math.abs(weight)), "*", sourceName);
               }
             }
-          } else {
-            if (weight > 0) {
-              if (firstTerm) {
-                // x10 = 0.5 * x00
-                termsArray.push(formatNumber(weight));
-                termsArray.push("*");
-                termsArray.push(sourceName);
-                firstTerm = false;
-              } else {
-                // x10 = ... + 0.5 * x00
-                termsArray.push("+");
-                termsArray.push(formatNumber(weight));
-                termsArray.push("*");
-                termsArray.push(sourceName);
-              }
-            } else {
-              if (firstTerm) {
-                // x10 = -0.5 * x00
-                termsArray.push(formatNumber(weight));
-                termsArray.push("*");
-                termsArray.push(sourceName);
-                firstTerm = false;
-              } else {
-                // x10 = ... - 0.5 * x00
-                termsArray.push("-");
-                termsArray.push(formatNumber(Math.abs(weight)));
-                termsArray.push("*");
-                termsArray.push(sourceName);
-              }
+            firstTerm = false;
             }
           }
         }
 
         // Bias term
         if (Math.abs(node.bias) >= 0.001) {
-          if (node.bias > 0.0) {
-            if (firstTerm) {
-              // x10 = 0.5
-              termsArray.push(formatNumber(node.bias));
-              firstTerm = false;
+          if (node.bias > 0.0) { // Positive bias
+            if (!firstTerm) termsArray.push("+");
+            termsArray.push(formatNumber(node.bias));
+          } else { // Negative bias
+            if (!firstTerm) termsArray.push("-");
+            else if(firstTerm && node.bias <0) termsArray.push(""); // Let formatNumber handle sign for first term
+
+            if(firstTerm){
+                 termsArray.push(formatNumber(node.bias));
             } else {
-              // x10 = ... + 0.5
-              termsArray.push("+");
-              termsArray.push(formatNumber(node.bias));
+                 termsArray.push(formatNumber(Math.abs(node.bias)));
             }
-          } else {
-            if (firstTerm) {
-              // x10 = -0.5
-              termsArray.push(formatNumber(node.bias));
-              firstTerm = false;
-            } else {
-              // x10 = ... - 0.5
-              termsArray.push("-");
-              termsArray.push(formatNumber(Math.abs(node.bias)));
+          }
+          firstTerm = false;
+        }
+
+        let joinedTerms = termsArray.join(" ");
+        // If no terms were added (all weights zero, bias zero), represent as e.g. relu(0.0)
+        // The activation function might not be relu, but the display uses it.
+        if (firstTerm) { // This means termsArray is empty
+          joinedTerms = "0.0";
+        }
+
+        // Add range comment from node property
+        if (node.outputRange) {
+            codeLines.push(`// ${targetName} ∈ [${node.outputRange[0].toFixed(3)}, ${node.outputRange[1].toFixed(3)}]`);
+        }
+        codeLines.push(`${targetName} = relu(${joinedTerms})`); // Note: relu is hardcoded in display text
+      }
+      if (i < network.length - 1) { // If not the last layer (output layer)
+        codeLines.push(""); // Blank line after each hidden layer's definitions
+      }
+    }
+    return codeLines.join("\n");
+}
+
+/**
             }
           }
         }
@@ -169,7 +184,11 @@ export function generateNetworkCode(network: nn.Node[][], state: State): string 
           joinedTerms = "0.0";
         }
 
-        codeLines.push(`${targetName} = relu(${joinedTerms})`);
+        const range = calculatedRanges[targetName];
+        if (range) {
+            codeLines.push(`// ${targetName} ∈ [${range[0].toFixed(3)}, ${range[1].toFixed(3)}]`);
+        }
+        codeLines.push(`${targetName} = relu(${joinedTerms})`); // Note: relu is hardcoded in display
       }
       if (i < network.length - 1) {
         codeLines.push(""); // Blank line after each layer
@@ -178,6 +197,83 @@ export function generateNetworkCode(network: nn.Node[][], state: State): string 
 
     return codeLines.join("\n");
 }
+
+/**
+ * Calculates and stores the output range for each node in the network.
+ * The ranges are stored in the `node.outputRange` property.
+ * @param network The neural network.
+ * @param initialInputRanges A map from input node ID to its [min, max] range.
+ */
+export function calculateAndStoreNodeRanges(
+    network: nn.Node[][],
+    initialInputRanges: {[nodeId: string]: [number, number]}
+): void {
+  if (!network || network.length === 0) {
+    return;
+  }
+
+  // Helper functions for range arithmetic
+  function addRanges(r1: [number, number], r2: [number, number]): [number, number] {
+    if (!r1) return r2; // Useful if a term is zero
+    if (!r2) return r1;
+    return [r1[0] + r2[0], r1[1] + r2[1]];
+  }
+
+  function scalarMultiplyRange(scalar: number, range: [number, number]): [number, number] {
+    if (!range) return [0,0]; // Should not happen if source node has range
+    if (scalar === 0) return [0,0];
+    return scalar >= 0 ? [scalar * range[0], scalar * range[1]] : [scalar * range[1], scalar * range[0]];
+  }
+
+  function applyActivationRange(activation: nn.ActivationFunction, inputR: [number, number]): [number, number] {
+    if (!inputR) return undefined; // Or some default like [-Infinity, Infinity]
+
+    // TODO: Consider nn.Activations.RELU, nn.Activations.SIGMOID, nn.Activations.LINEAR
+    // For now, handling TANH as it's primarily used in the hardcoded parity example.
+    // This should be expanded for general networks.
+    if (activation === nn.Activations.TANH) {
+      return [(Math as any).tanh(inputR[0]), (Math as any).tanh(inputR[1])];
+    } else if (activation === nn.Activations.SIGMOID) {
+      const sigmoid = (x: number) => 1 / (1 + Math.exp(-x));
+      return [sigmoid(inputR[0]), sigmoid(inputR[1])];
+    } else if (activation === nn.Activations.RELU) {
+      return [Math.max(0, inputR[0]), Math.max(0, inputR[1])];
+    } else if (activation === nn.Activations.LINEAR) {
+      return [inputR[0], inputR[1]];
+    }
+    // Default or unknown activation
+    console.warn("Unknown activation function for range calculation:", activation);
+    // Fallback to a wide range, or handle error
+    return [-Infinity, Infinity];
+  }
+
+  // Set ranges for input layer
+  const inputLayer = network[0];
+  for (const node of inputLayer) {
+    node.outputRange = initialInputRanges[node.id] || [0, 0]; // Default to [0,0] if not specified
+  }
+
+  // Propagate ranges layer by layer
+  for (let layerIdx = 1; layerIdx < network.length; layerIdx++) {
+    const currentLayer = network[layerIdx];
+    for (const node of currentLayer) {
+      let totalInputRange: [number, number] = [node.bias, node.bias]; // Start with bias
+
+      for (const link of node.inputLinks) {
+        if (link.isDead || !link.source.outputRange) {
+          continue; // Skip dead links or source nodes without a calculated range
+        }
+        const weight = link.weight;
+        const sourceOutputRange = link.source.outputRange;
+
+        const weightedSourceRange = scalarMultiplyRange(weight, sourceOutputRange);
+        totalInputRange = addRanges(totalInputRange, weightedSourceRange);
+      }
+      node.outputRange = applyActivationRange(node.activation, totalInputRange);
+    }
+  }
+}
+
 
 let mainWidth;
 
@@ -1060,6 +1156,23 @@ function oneStep(): void {
   // Compute the loss.
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
+
+  // Recalculate ranges if it's the parity dataset, after weights have been updated
+  if (state.dataset === datasets.parity && network) {
+    const initialParityRanges: {[nodeId: string]: [number, number]} = {};
+    for (let i = 0; i < state.numBits; i++) {
+      const bitId = `bit${i}`;
+      if (i < 4) {
+        initialParityRanges[bitId] = [0.0, 1.0];
+      } else if (i < 8) {
+        initialParityRanges[bitId] = [1.0, 1.0];
+      } else {
+         initialParityRanges[bitId] = [1.0, 1.0]; // Default for bits > 7
+      }
+    }
+    calculateAndStoreNodeRanges(network, initialParityRanges);
+  }
+
   updateUI();
 }
 
@@ -1150,6 +1263,36 @@ function reset(onStartup=false, hardcodeWeights=false) {
 
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
+
+  // Calculate and store ranges if it's the parity dataset
+  if (state.dataset === datasets.parity) {
+    const initialParityRanges: {[nodeId: string]: [number, number]} = {};
+    // Construct ranges for all active bits for the parity problem
+    for (let i = 0; i < state.numBits; i++) {
+      const bitId = `bit${i}`;
+      // Use the specified ranges: bit0-3 are [0,1], bit4-7 are [1,1]
+      // This logic assumes numBits will be at least 8 for the specific ranges.
+      // If numBits could be less than 8, this might need adjustment or
+      // rely on the default [0,0] in calculateAndStoreNodeRanges for unspec. bits.
+      if (i < 4) {
+        initialParityRanges[bitId] = [0.0, 1.0];
+      } else if (i < 8) { // Covers bit4 through bit7
+        initialParityRanges[bitId] = [1.0, 1.0];
+      } else {
+        // For bits beyond bit7, if numBits > 8, default to [0,0] or some other rule.
+        // The original request implies up to bit7.
+        // For now, let's assume they'd also follow the bit4-7 pattern if more were active.
+         initialParityRanges[bitId] = [1.0, 1.0];
+      }
+    }
+    calculateAndStoreNodeRanges(network, initialParityRanges);
+  } else {
+    // Clear any existing ranges if not the parity dataset
+    if (network) { // Ensure network is initialized
+        network.forEach(layer => layer.forEach(node => delete node.outputRange));
+    }
+  }
+
   drawNetwork(network);
   updateUI(true);
 }
