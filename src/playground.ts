@@ -73,20 +73,10 @@ let INPUTS: {[name: string]: InputFeature} = {
 };
 
 let HIDABLE_CONTROLS = [
-  ["Show test data", "showTestData"],
   ["Discretize output", "discretize"],
-  ["Play button", "playButton"],
-  ["Step button", "stepButton"],
   ["Reset button", "resetButton"],
-  ["Learning rate", "learningRate"],
   ["Activation", "activation"],
-  ["Regularization", "regularization"],
-  ["Regularization rate", "regularizationRate"],
-  ["Problem type", "problem"],
   ["Which dataset", "dataset"],
-  ["Ratio train data", "percTrainData"],
-  ["Noise level", "noise"],
-  ["Batch size", "batchSize"],
   ["# of hidden layers", "numHiddenLayers"],
 ];
 
@@ -179,26 +169,6 @@ function makeGUI() {
   d3.select("#reset-button").on("click", () => {
     reset();
     userHasInteracted();
-    d3.select("#play-pause-button");
-  });
-
-  d3.select("#play-pause-button").on("click", function () {
-    // Change the button's content.
-    userHasInteracted();
-    player.playOrPause();
-  });
-
-  player.onPlayPause(isPlaying => {
-    d3.select("#play-pause-button").classed("playing", isPlaying);
-  });
-
-  d3.select("#next-step-button").on("click", () => {
-    player.pause();
-    userHasInteracted();
-    if (iter === 0) {
-      simulationStarted();
-    }
-    oneStep();
   });
 
   d3.select("#data-regen-button").on("click", () => {
@@ -264,15 +234,6 @@ function makeGUI() {
     reset();
   });
 
-  let showTestData = d3.select("#show-test-data").on("change", function() {
-    state.showTestData = this.checked;
-    state.serialize();
-    userHasInteracted();
-    heatMap.updateTestPoints(state.showTestData ? testData : []);
-  });
-  // Check/uncheck the checkbox according to the current state.
-  showTestData.property("checked", state.showTestData);
-
   let discretize = d3.select("#discretize").on("change", function() {
     state.discretize = this.checked;
     state.serialize();
@@ -282,45 +243,6 @@ function makeGUI() {
   // Check/uncheck the checbox according to the current state.
   discretize.property("checked", state.discretize);
 
-  let percTrain = d3.select("#percTrainData").on("input", function() {
-    state.percTrainData = this.value;
-    d3.select("label[for='percTrainData'] .value").text(this.value);
-    generateData();
-    parametersChanged = true;
-    reset();
-  });
-  percTrain.property("value", state.percTrainData);
-  d3.select("label[for='percTrainData'] .value").text(state.percTrainData);
-
-  let noise = d3.select("#noise").on("input", function() {
-    state.noise = this.value;
-    d3.select("label[for='noise'] .value").text(this.value);
-    generateData();
-    parametersChanged = true;
-    reset();
-  });
-  let currentMax = parseInt(noise.property("max"));
-  if (state.noise > currentMax) {
-    if (state.noise <= 80) {
-      noise.property("max", state.noise);
-    } else {
-      state.noise = 50;
-    }
-  } else if (state.noise < 0) {
-    state.noise = 0;
-  }
-  noise.property("value", state.noise);
-  d3.select("label[for='noise'] .value").text(state.noise);
-
-  let batchSize = d3.select("#batchSize").on("input", function() {
-    state.batchSize = this.value;
-    d3.select("label[for='batchSize'] .value").text(this.value);
-    parametersChanged = true;
-    reset();
-  });
-  batchSize.property("value", state.batchSize);
-  d3.select("label[for='batchSize'] .value").text(state.batchSize);
-
   let activationDropdown = d3.select("#activations").on("change", function() {
     state.activation = activations[this.value];
     parametersChanged = true;
@@ -328,39 +250,6 @@ function makeGUI() {
   });
   activationDropdown.property("value",
       getKeyFromValue(activations, state.activation));
-
-  let learningRate = d3.select("#learningRate").on("change", function() {
-    state.learningRate = +this.value;
-    state.serialize();
-    userHasInteracted();
-    parametersChanged = true;
-  });
-  learningRate.property("value", state.learningRate);
-
-  let regularDropdown = d3.select("#regularizations").on("change",
-      function() {
-    state.regularization = regularizations[this.value];
-    parametersChanged = true;
-    reset();
-  });
-  regularDropdown.property("value",
-      getKeyFromValue(regularizations, state.regularization));
-
-  let regularRate = d3.select("#regularRate").on("change", function() {
-    state.regularizationRate = +this.value;
-    parametersChanged = true;
-    reset();
-  });
-  regularRate.property("value", state.regularizationRate);
-
-  let problem = d3.select("#problem").on("change", function() {
-    state.problem = problems[this.value];
-    generateData();
-    drawDatasetThumbnails();
-    parametersChanged = true;
-    reset();
-  });
-  problem.property("value", getKeyFromValue(problems, state.problem));
 
   // Add scale to the gradient color map.
   let x = d3.scale.linear().domain([-1, 1]).range([0, 144]);
@@ -880,9 +769,6 @@ function updateUI(firstStep = false) {
   }
 
   // Update loss and iteration number.
-  d3.select("#loss-train").text(humanReadable(lossTrain));
-  d3.select("#loss-test").text(humanReadable(lossTest));
-  d3.select("#iter-number").text(addCommas(zeroPad(iter)));
   lineChart.addDataPoint([lossTrain, lossTest]);
 }
 
