@@ -1,0 +1,65 @@
+# .github/workflows/deploy-pr.yml
+name: Deploy PR to Server
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build project
+      run: |
+        mkdir -p dist
+        npm run build
+      
+    - name: Setup SSH key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
+        
+    - name: Deploy to server
+      run: |
+        # Create a unique directory for this PR
+        PR_DIR="pr-${{ github.event.number }}"
+        
+        # Create directory on server if it doesn't exist
+        ssh ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }} "mkdir -p ${{ secrets.DEPLOY_PATH }}/$PR_DIR"
+        
+        # Copy dist folder to server
+        scp -r dist/* ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }}:${{ secrets.DEPLOY_PATH }}/$PR_DIR/
+        
+    - name: Comment PR with deploy URL
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const prNumber = context.payload.number;
+          const deployUrl = `${{ secrets.BASE_URL }}/pr-${prNumber}`;
+          
+          github.rest.issues.createComment({
+            issue_number: prNumber,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `🚀 **PR deployed successfully!**\n\n📱 Test URL: ${deployUrl}\n\nThis deployment will be updated automatically when you push new commits to this PR.`
+          });
