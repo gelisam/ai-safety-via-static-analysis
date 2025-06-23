@@ -1,4 +1,4 @@
-[ ] remove the play and step buttons (keep the reset button), remove the Epoch
+[x] remove the play and step buttons (keep the reset button), remove the Epoch
     counter, the "Tinker With a Neural Network Right Here in Your Browser"
     header, the Learning Rate dropdown, the Regularization dropdowns, the
     Problem type dropdown, the "Test loss", "Training loss" and the associated
