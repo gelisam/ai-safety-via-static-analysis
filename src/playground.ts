@@ -162,9 +162,6 @@ let network: nn.Node[][] = null;
 let lossTrain = 0;
 let lossTest = 0;
 let player = new Player();
-// The #linechart div was removed, so this would cause an error.
-// let lineChart = new AppendingLineChart(d3.select("#linechart"),
-//     ["#777", "black"]);
 
 function makeGUI() {
   d3.select("#reset-button").on("click", () => {
@@ -768,9 +765,6 @@ function updateUI(firstStep = false) {
   function humanReadable(n: number): string {
     return n.toFixed(3);
   }
-
-  // Update loss and iteration number.
-  // lineChart.addDataPoint([lossTrain, lossTest]);
 }
 
 function constructInputIds(): string[] {
