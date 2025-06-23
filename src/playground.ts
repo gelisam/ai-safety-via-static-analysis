@@ -162,8 +162,9 @@ let network: nn.Node[][] = null;
 let lossTrain = 0;
 let lossTest = 0;
 let player = new Player();
-let lineChart = new AppendingLineChart(d3.select("#linechart"),
-    ["#777", "black"]);
+// The #linechart div was removed, so this would cause an error.
+// let lineChart = new AppendingLineChart(d3.select("#linechart"),
+//     ["#777", "black"]);
 
 function makeGUI() {
   d3.select("#reset-button").on("click", () => {
@@ -769,7 +770,7 @@ function updateUI(firstStep = false) {
   }
 
   // Update loss and iteration number.
-  lineChart.addDataPoint([lossTrain, lossTest]);
+  // lineChart.addDataPoint([lossTrain, lossTest]);
 }
 
 function constructInputIds(): string[] {
@@ -824,7 +825,7 @@ export function getOutputWeights(network: nn.Node[][]): number[] {
 }
 
 function reset(onStartup=false) {
-  lineChart.reset();
+  // lineChart.reset();
   state.serialize();
   if (!onStartup) {
     userHasInteracted();
