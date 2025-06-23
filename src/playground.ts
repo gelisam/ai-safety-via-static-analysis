@@ -80,57 +80,6 @@ let HIDABLE_CONTROLS = [
   ["# of hidden layers", "numHiddenLayers"],
 ];
 
-class Player {
-  private timerIndex = 0;
-  private isPlaying = false;
-  private callback: (isPlaying: boolean) => void = null;
-
-  /** Plays/pauses the player. */
-  playOrPause() {
-    if (this.isPlaying) {
-      this.isPlaying = false;
-      this.pause();
-    } else {
-      this.isPlaying = true;
-      if (iter === 0) {
-        simulationStarted();
-      }
-      this.play();
-    }
-  }
-
-  onPlayPause(callback: (isPlaying: boolean) => void) {
-    this.callback = callback;
-  }
-
-  play() {
-    this.pause();
-    this.isPlaying = true;
-    if (this.callback) {
-      this.callback(this.isPlaying);
-    }
-    this.start(this.timerIndex);
-  }
-
-  pause() {
-    this.timerIndex++;
-    this.isPlaying = false;
-    if (this.callback) {
-      this.callback(this.isPlaying);
-    }
-  }
-
-  private start(localTimerIndex: number) {
-    d3.timer(() => {
-      if (localTimerIndex < this.timerIndex) {
-        return true;  // Done.
-      }
-      oneStep();
-      return false;  // Not done.
-    }, 0);
-  }
-}
-
 let state = State.deserializeState();
 
 // Filter out inputs that are hidden.
@@ -161,7 +110,6 @@ let testData: Example2D[] = [];
 let network: nn.Node[][] = null;
 let lossTrain = 0;
 let lossTest = 0;
-let player = new Player();
 
 function makeGUI() {
   d3.select("#reset-button").on("click", () => {
@@ -752,19 +700,6 @@ function updateUI(firstStep = false) {
     data.heatmap.updateBackground(reduceMatrix(boundary[data.id], 10),
         state.discretize);
   });
-
-  function zeroPad(n: number): string {
-    let pad = "000000";
-    return (pad + n).slice(-pad.length);
-  }
-
-  function addCommas(s: string): string {
-    return s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  }
-
-  function humanReadable(n: number): string {
-    return n.toFixed(3);
-  }
 }
 
 function constructInputIds(): string[] {
@@ -824,7 +759,6 @@ function reset(onStartup=false) {
   if (!onStartup) {
     userHasInteracted();
   }
-  player.pause();
 
   let suffix = state.numHiddenLayers !== 1 ? "s" : "";
   d3.select("#layers-label").text("Hidden layer" + suffix);
