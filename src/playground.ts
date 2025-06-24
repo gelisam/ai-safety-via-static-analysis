@@ -1105,53 +1105,73 @@ function reset(onStartup=false, hardcodeWeights=false) {
   let shape = [numInputs].concat(state.networkShape).concat([1]);
   let outputActivation = (state.problem === Problem.REGRESSION) ?
       nn.Activations.LINEAR : nn.Activations.TANH;
+  // Set initZero to true to use the new weight initialization logic.
+  // The name `initZero` is a bit of a misnomer now, as it triggers specific
+  // 0 or 1 weight initialization, not just all zeros.
+  // We are passing `true` for the `initZero` parameter to `buildNetwork`.
+  // This parameter is now also used by the Link constructor to determine
+  // if it should apply the identity weight logic.
   network = nn.buildNetwork(shape, state.activation, outputActivation,
-      state.regularization, constructInputIds(), state.initZero);
+      state.regularization, constructInputIds(), true);
 
+  // The hardcodedWeights section for parity was specific to a different
+  // weight initialization strategy. We should remove or adapt it.
+  // For now, let's remove it to ensure our new general identity logic is used.
+  // The `hardcodeWeights` parameter itself can also be removed from `reset`
+  // if it's no longer used for any other purpose.
+  // For now, we'll keep the parameter but comment out its block.
+  /*
   if (hardcodeWeights) {
+    // This section is commented out to allow the new general identity
+    // initialization to take effect.
+    // If specific hardcoding is needed for parity beyond identity,
+    // this would need to be revisited.
+
     // Initialize weights for the parity network
     // network[1][i] is 1 if the bitstring has at least i+1 1s
-    for (let i=0; i<network[1].length; i++) {
-      for (let j=0; j<network[0].length; j++) {
-        network[1][i].inputLinks[j].weight = 1;
-      }
-      network[1][i].bias = -i;
-    }
+    // for (let i=0; i<network[1].length; i++) {
+    //   for (let j=0; j<network[0].length; j++) {
+    //     network[1][i].inputLinks[j].weight = 1;
+    //   }
+    //   network[1][i].bias = -i;
+    // }
 
     // network[2][i] is 1 if the bitstring has exactly i+1 1s
-    if (network[2]) {
-      for (let i=0; i<network[2].length; i++) {
-        for (let j=0; j<network[1].length; j++) {
-          network[2][i].inputLinks[j].weight = 0;
-        }
-        network[2][i].inputLinks[i].weight = 1;
-        if (i+1 < network[1].length) {
-          network[2][i].inputLinks[i+1].weight = -2;
-        }
-        network[2][i].bias = 0;
-      }
-    }
+    // if (network[2]) {
+    //   for (let i=0; i<network[2].length; i++) {
+    //     for (let j=0; j<network[1].length; j++) {
+    //       network[2][i].inputLinks[j].weight = 0;
+    //     }
+    //     network[2][i].inputLinks[i].weight = 1;
+    //     if (i+1 < network[1].length) {
+    //       network[2][i].inputLinks[i+1].weight = -2;
+    //     }
+    //     network[2][i].bias = 0;
+    //   }
+    // }
 
     // network[3][0] is 2 if the bitstring has an odd number of 1s
     // and -2 otherwise
-    if (network[3]) {
-      for (let i=0; i<network[3].length; i++) {
-        for (let j=0; j<network[2].length; j++) {
-          if (j % 2 == 0) {
-            network[3][i].inputLinks[j].weight = 4;
-          } else {
-            network[3][i].inputLinks[j].weight = 0;
-          }
-        }
-        network[3][i].bias = -2;
-      }
-    }
+    // if (network[3]) {
+    //   for (let i=0; i<network[3].length; i++) {
+    //     for (let j=0; j<network[2].length; j++) {
+    //       if (j % 2 == 0) {
+    //         network[3][i].inputLinks[j].weight = 4;
+    //       } else {
+    //         network[3][i].inputLinks[j].weight = 0;
+    //       }
+    //     }
+    //     network[3][i].bias = -2;
+    //   }
+    // }
   }
+  */
 
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
   drawNetwork(network);
   updateUI(true);
+  // Removed debugging logs that were here
 }
 
 function initTutorial() {

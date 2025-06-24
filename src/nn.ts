@@ -22,7 +22,7 @@ export class Node {
   id: string;
   /** List of input links. */
   inputLinks: Link[] = [];
-  bias = 0.1;
+  bias = 0.0; // Initialize bias to 0.0
   /** List of output links. */
   outputs: Link[] = [];
   totalInput: number;
@@ -51,6 +51,10 @@ export class Node {
   constructor(id: string, activation: ActivationFunction, initZero?: boolean) {
     this.id = id;
     this.activation = activation;
+    // Bias is now initialized to 0.0 by default.
+    // The initZero flag can be used for other purposes if needed,
+    // or removed if it's no longer used elsewhere for bias.
+    // For now, we'll keep its effect for explicit zeroing if called.
     if (initZero) {
       this.bias = 0;
     }
@@ -158,7 +162,7 @@ export class Link {
   id: string;
   source: Node;
   dest: Node;
-  weight = Math.random() - 0.5;
+  weight = 0.0; // Initialize weight to 0.0 by default
   isDead = false;
   /** Error derivative with respect to this weight. */
   errorDer = 0;
@@ -175,15 +179,25 @@ export class Link {
    * @param dest The destination node.
    * @param regularization The regularization function that computes the
    *     penalty for this weight. If null, there will be no regularization.
+   * @param sourceNodeIndex The index of the source node in its layer.
+   * @param destNodeIndex The index of the destination node in its layer.
    */
   constructor(source: Node, dest: Node,
-      regularization: RegularizationFunction, initZero?: boolean) {
+      regularization: RegularizationFunction, initZero?: boolean, sourceNodeIndex?: number, destNodeIndex?: number) {
     this.id = source.id + "-" + dest.id;
     this.source = source;
     this.dest = dest;
     this.regularization = regularization;
+
+    // Default weight is 0.0 (already set at declaration)
+    // If initZero is true, explicitly set to 0 (though it's already 0)
     if (initZero) {
       this.weight = 0;
+    }
+
+    // If source and dest node indices are the same, it's an identity link.
+    if (sourceNodeIndex !== undefined && destNodeIndex !== undefined && sourceNodeIndex === destNodeIndex) {
+      this.weight = 1.0;
     }
   }
 }
@@ -230,7 +244,8 @@ export function buildNetwork(
         // Add links from nodes in the previous layer to this node.
         for (let j = 0; j < network[layerIdx - 1].length; j++) {
           let prevNode = network[layerIdx - 1][j];
-          let link = new Link(prevNode, node, regularization, initZero);
+          // Pass j (sourceNodeIndex) and i (destNodeIndex) to Link constructor
+          let link = new Link(prevNode, node, regularization, initZero, j, i);
           prevNode.outputs.push(link);
           node.inputLinks.push(link);
         }
