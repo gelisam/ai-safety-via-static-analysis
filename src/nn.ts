@@ -173,7 +173,7 @@ export class Link {
   regularization: RegularizationFunction;
 
   /**
-   * Constructs a link in the neural network initialized with random weight.
+   * Constructs a link in the neural network.
    *
    * @param source The source node.
    * @param dest The destination node.
@@ -190,14 +190,17 @@ export class Link {
     this.regularization = regularization;
 
     // Default weight is 0.0 (already set at declaration)
-    // If initZero is true, explicitly set to 0 (though it's already 0)
+    // If initZero is true, explicitly set to 0 (though it's already 0 by default if not identity)
+    // The main purpose of initZero here is to signal that special initialization is requested.
     if (initZero) {
-      this.weight = 0;
-    }
-
-    // If source and dest node indices are the same, it's an identity link.
-    if (sourceNodeIndex !== undefined && destNodeIndex !== undefined && sourceNodeIndex === destNodeIndex) {
-      this.weight = 1.0;
+      if (sourceNodeIndex !== undefined && destNodeIndex !== undefined && sourceNodeIndex === destNodeIndex) {
+        this.weight = 1.0;
+      } else {
+        this.weight = 0.0;
+      }
+    } else {
+      // Fallback to random if initZero is not true (original behavior)
+      this.weight = Math.random() - 0.5;
     }
   }
 }
@@ -237,6 +240,7 @@ export function buildNetwork(
       } else {
         id++;
       }
+      // Pass initZero to Node constructor
       let node = new Node(nodeId,
           isOutputLayer ? outputActivation : activation, initZero);
       currentLayer.push(node);
@@ -244,7 +248,7 @@ export function buildNetwork(
         // Add links from nodes in the previous layer to this node.
         for (let j = 0; j < network[layerIdx - 1].length; j++) {
           let prevNode = network[layerIdx - 1][j];
-          // Pass j (sourceNodeIndex) and i (destNodeIndex) to Link constructor
+          // Pass j (sourceNodeIndex) and i (destNodeIndex) to Link constructor, along with initZero
           let link = new Link(prevNode, node, regularization, initZero, j, i);
           prevNode.outputs.push(link);
           node.inputLinks.push(link);
