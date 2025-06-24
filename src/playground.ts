@@ -471,6 +471,7 @@ function drawNetwork(network: nn.Node[][]): void {
   let node = network[numLayers - 1][0];
   let cy = nodeIndexScale(0) + RECT_SIZE / 2;
   node2coord[node.id] = {cx, cy};
+  drawNode(cx, cy, node.id, false, container, node);
   // Draw links.
   for (let i = 0; i < node.inputLinks.length; i++) {
     let link = node.inputLinks[i];
