@@ -4,7 +4,6 @@
     Problem type dropdown, the "Test loss", "Training loss" and the associated
     graph, the "Ratio of training to test data" slider, the "Noise" slider, the
     "Batch size" slider, and the "Show test data" button.
-[ ] make the reset button set all the weights to zero.
 [ ] make the output's bias editable. currently there are no rectangles we can
     click to edit the bias.
 [ ] make it easier to edit the weights and bias by hand: instead of clicking to

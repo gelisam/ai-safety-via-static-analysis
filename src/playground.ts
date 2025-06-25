@@ -177,7 +177,7 @@ let lineChart = new AppendingLineChart(d3.select("#linechart"),
 
 function makeGUI() {
   d3.select("#reset-button").on("click", () => {
-    reset();
+    reset(false, true);
     userHasInteracted();
     d3.select("#play-pause-button");
   });
@@ -217,7 +217,7 @@ function makeGUI() {
     d3.select(this).classed("selected", true);
     generateData();
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
 
   let datasetKey = getKeyFromValue(datasets, state.dataset);
@@ -236,7 +236,7 @@ function makeGUI() {
     d3.select(this).classed("selected", true);
     generateData();
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
 
   let regDatasetKey = getKeyFromValue(regDatasets, state.regDataset);
@@ -251,7 +251,7 @@ function makeGUI() {
     state.networkShape[state.numHiddenLayers] = 2;
     state.numHiddenLayers++;
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
 
   d3.select("#remove-layers").on("click", () => {
@@ -261,7 +261,7 @@ function makeGUI() {
     state.numHiddenLayers--;
     state.networkShape.splice(state.numHiddenLayers);
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
 
   let showTestData = d3.select("#show-test-data").on("change", function() {
@@ -287,7 +287,7 @@ function makeGUI() {
     d3.select("label[for='percTrainData'] .value").text(this.value);
     generateData();
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
   percTrain.property("value", state.percTrainData);
   d3.select("label[for='percTrainData'] .value").text(state.percTrainData);
@@ -297,7 +297,7 @@ function makeGUI() {
     d3.select("label[for='noise'] .value").text(this.value);
     generateData();
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
   let currentMax = parseInt(noise.property("max"));
   if (state.noise > currentMax) {
@@ -316,7 +316,7 @@ function makeGUI() {
     state.batchSize = this.value;
     d3.select("label[for='batchSize'] .value").text(this.value);
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
   batchSize.property("value", state.batchSize);
   d3.select("label[for='batchSize'] .value").text(state.batchSize);
@@ -324,7 +324,7 @@ function makeGUI() {
   let activationDropdown = d3.select("#activations").on("change", function() {
     state.activation = activations[this.value];
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
   activationDropdown.property("value",
       getKeyFromValue(activations, state.activation));
@@ -341,7 +341,7 @@ function makeGUI() {
       function() {
     state.regularization = regularizations[this.value];
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
   regularDropdown.property("value",
       getKeyFromValue(regularizations, state.regularization));
@@ -349,7 +349,7 @@ function makeGUI() {
   let regularRate = d3.select("#regularRate").on("change", function() {
     state.regularizationRate = +this.value;
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
   regularRate.property("value", state.regularizationRate);
 
@@ -358,7 +358,7 @@ function makeGUI() {
     generateData();
     drawDatasetThumbnails();
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
   problem.property("value", getKeyFromValue(problems, state.problem));
 
@@ -521,7 +521,7 @@ function drawNode(cx: number, cy: number, nodeId: string, isInput: boolean,
     div.on("click", function() {
       state[nodeId] = !state[nodeId];
       parametersChanged = true;
-      reset();
+      reset(false, true);
     });
     div.style("cursor", "pointer");
   }
@@ -675,7 +675,7 @@ function addPlusMinusControl(x: number, layerIdx: number) {
         }
         state.networkShape[i]++;
         parametersChanged = true;
-        reset();
+        reset(false, true);
       })
     .append("i")
       .attr("class", "material-icons")
@@ -690,7 +690,7 @@ function addPlusMinusControl(x: number, layerIdx: number) {
         }
         state.networkShape[i]--;
         parametersChanged = true;
-        reset();
+        reset(false, true);
       })
     .append("i")
       .attr("class", "material-icons")
@@ -937,7 +937,7 @@ export function getOutputWeights(network: nn.Node[][]): number[] {
   return weights;
 }
 
-function reset(onStartup=false) {
+function reset(onStartup=false, hardcodeWeights=false) {
   lineChart.reset();
   state.serialize();
   if (!onStartup) {
@@ -957,6 +957,24 @@ function reset(onStartup=false) {
       nn.Activations.LINEAR : nn.Activations.TANH;
   network = nn.buildNetwork(shape, state.activation, outputActivation,
       state.regularization, constructInputIds(), state.initZero);
+
+  if (hardcodeWeights) {
+    // Initialize weights for the identity function
+    // network[i][j] is the same as network[0][j]
+    for (let i=0; i<network.length; i++) {
+      for (let j=0; j<network[i].length; j++) {
+        for (let k=0; k<network[i][j].inputLinks.length; k++) {
+          if (k === j) {
+            network[i][j].inputLinks[k].weight = 1;
+          } else {
+            network[i][j].inputLinks[k].weight = 0;
+          }
+        }
+        network[i][j].bias = 0;
+      }
+    }
+  }
+
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
   drawNetwork(network);
@@ -1117,5 +1135,5 @@ drawDatasetThumbnails();
 initTutorial();
 makeGUI();
 generateData(true);
-reset(true);
+reset(true, true);
 hideControls();
