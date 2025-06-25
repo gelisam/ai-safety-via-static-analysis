@@ -1,10 +1,10 @@
-[ ] remove the play and step buttons (keep the reset button), remove the Epoch
+[x] remove the play and step buttons (keep the reset button), remove the Epoch
     counter, the "Tinker With a Neural Network Right Here in Your Browser"
     header, the Learning Rate dropdown, the Regularization dropdowns, the
     Problem type dropdown, the "Test loss", "Training loss" and the associated
     graph, the "Ratio of training to test data" slider, the "Noise" slider, the
     "Batch size" slider, and the "Show test data" button.
-[ ] make the output's bias editable. currently there are no rectangles we can
+[x] make the output's bias editable. currently there are no rectangles we can
     click to edit the bias.
 [ ] make it easier to edit the weights and bias by hand: instead of clicking to
     enable the edit box where we need to type the new value for the weight or
