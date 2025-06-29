@@ -584,6 +584,13 @@ function updateHoverCard(type: HoverType, nodeOrLink?: nn.Node | nn.Link,
 
   // Event listener for starting drag
   hovercard.on("pointerdown.drag", (event: PointerEvent) => {
+    console.log("Hovercard pointerdown triggered.", {
+      pointerType: event.pointerType,
+      clientY: event.clientY,
+      target: event.target,
+      currentTarget: event.currentTarget
+    });
+
     // Check if the event target is the hovercard itself or its children, but not the input field
     if (event.target !== hovercard.select("input").node()) {
       isDragging = true;
@@ -596,6 +603,8 @@ function updateHoverCard(type: HoverType, nodeOrLink?: nn.Node | nn.Link,
       event.preventDefault(); // Still useful for desktop and some mobile side-effects
       hovercard.style("cursor", "ns-resize");
       hovercard.style("touch-action", "none"); // Critical for preventing scroll on mobile
+      console.log("Set touch-action: none on hovercard.", hovercard.node().style.touchAction);
+
 
       // Add move and up listeners to the window to capture events globally
       d3.select(window)
@@ -606,8 +615,8 @@ function updateHoverCard(type: HoverType, nodeOrLink?: nn.Node | nn.Link,
           let dy = startY - currentY; // Inverted Y-axis for intuitive dragging (drag up = increase)
           let newValue = initialValue + dy / DRAG_SENSITIVITY;
 
-          // Clamp or round if necessary, here just using precision
           newValue = parseFloat(newValue.toPrecision(2));
+          console.log("Window pointermove:", { currentY, dy, newValue });
 
 
           if (type === HoverType.WEIGHT) {
@@ -620,10 +629,12 @@ function updateHoverCard(type: HoverType, nodeOrLink?: nn.Node | nn.Link,
           updateUI();
         })
         .on("pointerup.drag", (e: PointerEvent) => {
+          console.log("Window pointerup triggered.", { pointerType: e.pointerType });
           if (!isDragging) return;
           isDragging = false;
           hovercard.style("cursor", "ns-resize");
           hovercard.style("touch-action", "auto"); // Restore default touch behavior
+          console.log("Restored touch-action: auto on hovercard.", hovercard.node().style.touchAction);
           // Remove global listeners
           d3.select(window).on("pointermove.drag", null).on("pointerup.drag", null);
           // Potentially call updateUI() again if needed, though it's called on move
