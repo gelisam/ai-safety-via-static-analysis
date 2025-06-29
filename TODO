@@ -7,7 +7,7 @@
 [ ] make the reset button set all the weights to zero.
 [x] make the output's bias editable. currently there are no rectangles we can
     click to edit the bias.
-[ ] make it easier to edit the weights and bias by hand: instead of clicking to
+[x] make it easier to edit the weights and bias by hand: instead of clicking to
     enable the edit box where we need to type the new value for the weight or
     bias, let the user click-and-drag to smoothly adjust the value.
 [ ] hit shift while click-and-dragging to snap to the nearest 0.1 increment.
