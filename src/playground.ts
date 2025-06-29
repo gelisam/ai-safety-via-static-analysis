@@ -593,14 +593,15 @@ function updateHoverCard(type: HoverType, nodeOrLink?: nn.Node | nn.Link,
         (nodeOrLink as nn.Node).bias;
 
       // Prevent text selection and default drag behaviors
-      event.preventDefault();
+      event.preventDefault(); // Still useful for desktop and some mobile side-effects
       hovercard.style("cursor", "ns-resize");
+      hovercard.style("touch-action", "none"); // Critical for preventing scroll on mobile
 
       // Add move and up listeners to the window to capture events globally
       d3.select(window)
         .on("pointermove.drag", (e: PointerEvent) => {
           if (!isDragging) return;
-          e.preventDefault();
+          e.preventDefault(); // Prevent default actions during move as well
           let currentY = e.clientY;
           let dy = startY - currentY; // Inverted Y-axis for intuitive dragging (drag up = increase)
           let newValue = initialValue + dy / DRAG_SENSITIVITY;
@@ -622,6 +623,7 @@ function updateHoverCard(type: HoverType, nodeOrLink?: nn.Node | nn.Link,
           if (!isDragging) return;
           isDragging = false;
           hovercard.style("cursor", "ns-resize");
+          hovercard.style("touch-action", "auto"); // Restore default touch behavior
           // Remove global listeners
           d3.select(window).on("pointermove.drag", null).on("pointerup.drag", null);
           // Potentially call updateUI() again if needed, though it's called on move
