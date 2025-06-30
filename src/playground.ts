@@ -113,7 +113,7 @@ let lossTest = 0;
 
 function makeGUI() {
   d3.select("#reset-button").on("click", () => {
-    reset();
+    reset(false, true);
     userHasInteracted();
   });
 
@@ -133,7 +133,7 @@ function makeGUI() {
     d3.select(this).classed("selected", true);
     generateData();
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
 
   let datasetKey = getKeyFromValue(datasets, state.dataset);
@@ -152,7 +152,7 @@ function makeGUI() {
     d3.select(this).classed("selected", true);
     generateData();
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
 
   let regDatasetKey = getKeyFromValue(regDatasets, state.regDataset);
@@ -167,7 +167,7 @@ function makeGUI() {
     state.networkShape[state.numHiddenLayers] = 2;
     state.numHiddenLayers++;
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
 
   d3.select("#remove-layers").on("click", () => {
@@ -177,7 +177,7 @@ function makeGUI() {
     state.numHiddenLayers--;
     state.networkShape.splice(state.numHiddenLayers);
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
 
   let discretize = d3.select("#discretize").on("change", function() {
@@ -188,11 +188,11 @@ function makeGUI() {
   });
   // Check/uncheck the checbox according to the current state.
   discretize.property("checked", state.discretize);
-
+  
   let activationDropdown = d3.select("#activations").on("change", function() {
     state.activation = activations[this.value];
     parametersChanged = true;
-    reset();
+    reset(false, true);
   });
   activationDropdown.property("value",
       getKeyFromValue(activations, state.activation));
@@ -360,7 +360,7 @@ function drawNode(cx: number, cy: number, nodeId: string, isInput: boolean,
       div.on("click", function() {
         state[nodeId] = !state[nodeId];
         parametersChanged = true;
-        reset();
+        reset(false, true);
       });
       div.style("cursor", "pointer");
     }
@@ -516,7 +516,7 @@ function addPlusMinusControl(x: number, layerIdx: number) {
         }
         state.networkShape[i]++;
         parametersChanged = true;
-        reset();
+        reset(false, true);
       })
     .append("i")
       .attr("class", "material-icons")
@@ -531,7 +531,7 @@ function addPlusMinusControl(x: number, layerIdx: number) {
         }
         state.networkShape[i]--;
         parametersChanged = true;
-        reset();
+        reset(false, true);
       })
     .append("i")
       .attr("class", "material-icons")
@@ -759,8 +759,7 @@ export function getOutputWeights(network: nn.Node[][]): number[] {
   return weights;
 }
 
-function reset(onStartup=false) {
-  // lineChart.reset();
+function reset(onStartup=false, hardcodeWeights=false) {
   state.serialize();
   if (!onStartup) {
     userHasInteracted();
@@ -778,6 +777,24 @@ function reset(onStartup=false) {
       nn.Activations.LINEAR : nn.Activations.TANH;
   network = nn.buildNetwork(shape, state.activation, outputActivation,
       state.regularization, constructInputIds(), state.initZero);
+
+  if (hardcodeWeights) {
+    // Initialize weights for the identity function
+    // network[i][j] is the same as network[0][j]
+    for (let i=0; i<network.length; i++) {
+      for (let j=0; j<network[i].length; j++) {
+        for (let k=0; k<network[i][j].inputLinks.length; k++) {
+          if (k === j) {
+            network[i][j].inputLinks[k].weight = 1;
+          } else {
+            network[i][j].inputLinks[k].weight = 0;
+          }
+        }
+        network[i][j].bias = 0;
+      }
+    }
+  }
+
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
   drawNetwork(network);
@@ -938,5 +955,5 @@ drawDatasetThumbnails();
 initTutorial();
 makeGUI();
 generateData(true);
-reset(true);
+reset(true, true);
 hideControls();
