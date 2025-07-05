@@ -158,7 +158,7 @@ export class Link {
   id: string;
   source: Node;
   dest: Node;
-  weight = Math.random() - 0.5;
+  weight = Math.random() - 0.5; // Will use seedrandom via playground.ts
   isDead = false;
   /** Error derivative with respect to this weight. */
   errorDer = 0;

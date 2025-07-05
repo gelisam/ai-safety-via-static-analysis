@@ -41,7 +41,7 @@ export function shuffle(array: any[]): void {
   // While there are elements in the array
   while (counter > 0) {
     // Pick a random index
-    index = Math.floor(Math.random() * counter);
+    index = Math.floor(Math.random() * counter); // Will use seedrandom via playground.ts
     // Decrease counter by 1
     counter--;
     // And swap the last element with it
@@ -268,7 +268,7 @@ export function classifyXORData(numSamples: number, noise: number):
  * Uses the seedrandom library as the random generator.
  */
 function randUniform(a: number, b: number) {
-  return Math.random() * (b - a) + a;
+  return Math.random() * (b - a) + a; // Will use seedrandom via playground.ts
 }
 
 /**
@@ -281,8 +281,8 @@ function randUniform(a: number, b: number) {
 function normalRandom(mean = 0, variance = 1): number {
   let v1: number, v2: number, s: number;
   do {
-    v1 = 2 * Math.random() - 1;
-    v2 = 2 * Math.random() - 1;
+    v1 = 2 * Math.random() - 1; // Will use seedrandom via playground.ts
+    v2 = 2 * Math.random() - 1; // Will use seedrandom via playground.ts
     s = v1 * v1 + v2 * v2;
   } while (s > 1);
 

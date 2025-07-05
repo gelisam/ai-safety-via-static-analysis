@@ -340,6 +340,29 @@ function makeGUI() {
     d3.select("div.more").style("display", "none");
     d3.select("header").style("display", "none");
   }
+
+  // Seed controls
+  d3.select("#applyUserSeed").on("click", () => {
+    const userSeedInput = document.getElementById("userSeed") as HTMLInputElement;
+    const newSeed = userSeedInput.value;
+    if (newSeed && newSeed.trim() !== "") {
+      state.seed = newSeed.trim();
+      state.serialize(); // Save the new seed
+      userHasInteracted();
+      generateData(false); // Regenerate data with the new seed
+      reset(); // Reset the network with the new seed
+    }
+  });
+
+  // Initial display of the seed
+  updateSeedDisplay();
+}
+
+function updateSeedDisplay() {
+  const currentSeedValueElement = document.getElementById("currentSeedValue");
+  if (currentSeedValueElement) {
+    currentSeedValueElement.innerText = state.seed;
+  }
 }
 
 function updateBiasesUI(network: nn.Node[][]) {
@@ -987,6 +1010,7 @@ function reset(onStartup=false, hardcodeWeights=false) {
   lossTest = getLoss(network, testData);
   drawNetwork(network);
   updateUI(true);
+  updateSeedDisplay(); // Ensure seed display is current
 }
 
 function initTutorial() {
@@ -1064,6 +1088,7 @@ function generateData(firstTime = false) {
     userHasInteracted();
   }
   Math.seedrandom(state.seed);
+  updateSeedDisplay(); // Update the displayed seed
   let numSamples = Math.pow(2, state.numBits);
   let generator = state.problem === Problem.CLASSIFICATION ?
       state.dataset : state.regDataset;
