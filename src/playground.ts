@@ -187,10 +187,10 @@ function makeGUI() {
   initCollapsibleSections();
 
   d3.select("#reset-button").on("click", () => {
-    state.seed = "0.00000"; // Explicitly set seed to default for hardcoded weights
+    state.seed = "0"; // Explicitly set seed to default for hardcoded weights
     state.serialize(); // Persist this seed if serialization were active
     userHasInteracted();
-    generateData(false); // Regenerate data with seed "0.00000"
+    generateData(false); // Regenerate data with seed "0"
     reset(); // Reset network (will use the new state.seed)
     d3.select("#play-pause-button");
   });
@@ -229,13 +229,13 @@ function makeGUI() {
 
     // If parity is selected, we want to ensure it starts with the hardcoded seed and weights
     if (newDataset === datasets.parity) {
-      state.seed = "0.00000";
+      state.seed = "0";
       state.serialize(); // Persist this seed if serialization were active
-      generateData(false); // Ensure seed "0.00000" is used by Math.seedrandom
+      generateData(false); // Ensure seed "0" is used by Math.seedrandom
       reset(false, true); // Explicitly hardcode weights for parity
     } else {
-      // For other datasets, generate new data (which might generate a new seed if not "0.00000")
-      // and reset normally without forcing hardcoded weights unless seed becomes "0.00000"
+      // For other datasets, generate new data (which might generate a new seed if not "0")
+      // and reset normally without forcing hardcoded weights unless seed becomes "0"
       generateData(false);
       reset();
     }
@@ -961,10 +961,10 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
   // Determine if weights should be hardcoded
   // Priority:
   // 1. Explicit hardcodeWeightsOption if provided (e.g. during initial parity setup)
-  // 2. If state.seed is "0.00000"
+  // 2. If state.seed is "0"
   // 3. Default to false if neither of the above
   const shouldUseHardcodedWeights = hardcodeWeightsOption !== undefined ? hardcodeWeightsOption :
-                                   (state.seed === "0.00000");
+                                   (state.seed === "0");
 
   let suffix = state.numHiddenLayers !== 1 ? "s" : "";
   d3.select("#layers-label").text("Hidden layer" + suffix);
@@ -1104,11 +1104,15 @@ function hideControls() {
 
 function generateData(firstTime = false) {
   if (!firstTime) {
-    // Change the seed.
-    state.seed = Math.random().toFixed(5);
+    // Change the seed to a new random 6-digit integer string.
+    // This will generate a number between 100000 and 999999, so it won't be "0".
+    state.seed = Math.floor(Math.random() * 900000 + 100000).toString();
     state.serialize();
     userHasInteracted();
   }
+  // If it's the first time and the seed is "0" (hardcoded default), Math.seedrandom("0") is called.
+  // If a user inputs a seed (e.g. "0" or "12345"), state.seed reflects that.
+  // If we just generated a new random int string, state.seed reflects that.
   Math.seedrandom(state.seed);
   updateSeedDisplay(); // Update the displayed seed
   let numSamples = Math.pow(2, state.numBits);

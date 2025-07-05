@@ -235,8 +235,8 @@ export class State {
     });
     state.numHiddenLayers = state.networkShape.length;
     if (state.seed == null) {
-      // Start with seed "0.00000" for hardcoded weights by default
-      state.seed = "0.00000";
+      // Start with seed "0" for hardcoded weights by default
+      state.seed = "0";
     }
     Math.seedrandom(state.seed);
     return state;
