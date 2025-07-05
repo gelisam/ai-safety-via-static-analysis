@@ -187,11 +187,12 @@ function makeGUI() {
   initCollapsibleSections();
 
   d3.select("#reset-button").on("click", () => {
-    state.seed = "0"; // Explicitly set seed to default for hardcoded weights
-    state.serialize(); // Persist this seed if serialization were active
+    // Main reset button now generates a new random seed
+    state.seed = Math.floor(Math.random() * 900000 + 100000).toString();
+    state.serialize();
     userHasInteracted();
-    generateData(); // Uses the "0" seed we just set
-    reset(); // Reset network (will use the "0" seed)
+    generateData(); // Uses the new random seed
+    reset(); // Reset network (will use the new random seed, no hardcoded weights)
     d3.select("#play-pause-button");
   });
 
