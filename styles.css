@@ -341,6 +341,22 @@ header h1 .optional {
   border-bottom-color: #183D4E; /* Match select focus border */
 }
 
+/* Ensure seed input control group has enough space and aligns items */
+#top-controls .control.ui-seed-input {
+  max-width: 280px; /* Increased max-width for the seed control */
+  min-width: 220px; /* Adjusted min-width */
+}
+
+#top-controls .control.ui-seed-input > div { /* The div containing input and button */
+  display: flex;
+  align-items: center;
+}
+
+#top-controls .control.ui-seed-input input.ui-input {
+  flex-grow: 1; /* Allow input to take available space */
+  width: auto; /* Override fixed width from inline style if necessary */
+}
+
 #top-controls .control select:focus {
   border-bottom-color: #183D4E;
 }
