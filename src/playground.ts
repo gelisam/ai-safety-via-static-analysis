@@ -187,8 +187,11 @@ function makeGUI() {
   initCollapsibleSections();
 
   d3.select("#reset-button").on("click", () => {
-    reset();
+    state.seed = "0.00000"; // Explicitly set seed to default for hardcoded weights
+    state.serialize(); // Persist this seed if serialization were active
     userHasInteracted();
+    generateData(false); // Regenerate data with seed "0.00000"
+    reset(); // Reset network (will use the new state.seed)
     d3.select("#play-pause-button");
   });
 
@@ -224,7 +227,18 @@ function makeGUI() {
     generateData();
     parametersChanged = true;
 
-    reset(false, newDataset === datasets.parity);
+    // If parity is selected, we want to ensure it starts with the hardcoded seed and weights
+    if (newDataset === datasets.parity) {
+      state.seed = "0.00000";
+      state.serialize(); // Persist this seed if serialization were active
+      generateData(false); // Ensure seed "0.00000" is used by Math.seedrandom
+      reset(false, true); // Explicitly hardcode weights for parity
+    } else {
+      // For other datasets, generate new data (which might generate a new seed if not "0.00000")
+      // and reset normally without forcing hardcoded weights unless seed becomes "0.00000"
+      generateData(false);
+      reset();
+    }
   });
 
   let datasetKey = getKeyFromValue(datasets, state.dataset);
@@ -936,7 +950,7 @@ export function getOutputWeights(network: nn.Node[][]): number[] {
   return weights;
 }
 
-function reset(onStartup=false, hardcodeWeights=false) {
+function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWeightsOption is now optional
   lineChart.reset();
   state.serialize();
   if (!onStartup) {
@@ -944,13 +958,21 @@ function reset(onStartup=false, hardcodeWeights=false) {
   }
   player.pause();
 
+  // Determine if weights should be hardcoded
+  // Priority:
+  // 1. Explicit hardcodeWeightsOption if provided (e.g. during initial parity setup)
+  // 2. If state.seed is "0.00000"
+  // 3. Default to false if neither of the above
+  const shouldUseHardcodedWeights = hardcodeWeightsOption !== undefined ? hardcodeWeightsOption :
+                                   (state.seed === "0.00000");
+
   let suffix = state.numHiddenLayers !== 1 ? "s" : "";
   d3.select("#layers-label").text("Hidden layer" + suffix);
   d3.select("#num-layers").text(state.numHiddenLayers);
 
   // Make a simple network.
   iter = 0;
-  if (hardcodeWeights) {
+  if (shouldUseHardcodedWeights) {
     for (let inputName in INPUTS) {
       state[inputName] = false;
     }
@@ -966,7 +988,7 @@ function reset(onStartup=false, hardcodeWeights=false) {
   network = nn.buildNetwork(shape, state.activation, outputActivation,
       state.regularization, constructInputIds(), state.initZero);
 
-  if (hardcodeWeights) {
+  if (shouldUseHardcodedWeights) {
     // Initialize weights for the parity network
     // network[1][i] is 1 if the bitstring has at least i+1 1s
     for (let i=0; i<network[1].length; i++) {
