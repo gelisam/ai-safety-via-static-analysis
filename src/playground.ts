@@ -190,8 +190,8 @@ function makeGUI() {
     state.seed = "0"; // Explicitly set seed to default for hardcoded weights
     state.serialize(); // Persist this seed if serialization were active
     userHasInteracted();
-    generateData(false); // Regenerate data with seed "0"
-    reset(); // Reset network (will use the new state.seed)
+    generateData(); // Uses the "0" seed we just set
+    reset(); // Reset network (will use the "0" seed)
     d3.select("#play-pause-button");
   });
 
@@ -231,13 +231,23 @@ function makeGUI() {
     if (newDataset === datasets.parity) {
       state.seed = "0";
       state.serialize(); // Persist this seed if serialization were active
-      generateData(false); // Ensure seed "0" is used by Math.seedrandom
+      generateData(); // Uses the "0" seed
       reset(false, true); // Explicitly hardcode weights for parity
     } else {
-      // For other datasets, generate new data (which might generate a new seed if not "0")
-      // and reset normally without forcing hardcoded weights unless seed becomes "0"
-      generateData(false);
-      reset();
+      // For other datasets, generate a new random seed
+      state.seed = Math.floor(Math.random() * 900000 + 100000).toString();
+      state.serialize();
+      generateData(); // Uses the new random seed
+      reset(); // Reset normally
+    }
+  });
+
+  // Add Enter key listener for the user seed input
+  const userSeedInput = document.getElementById("userSeed") as HTMLInputElement;
+  userSeedInput.addEventListener("keypress", function(event) {
+    if (event.key === "Enter") {
+      event.preventDefault(); // Prevent default form submission if any
+      document.getElementById("applyUserSeed").click(); // Trigger click on apply button
     }
   });
 
@@ -330,9 +340,14 @@ function makeGUI() {
 
   let problem = d3.select("#problem").on("change", function() {
     state.problem = problems[this.value];
-    generateData();
+    // Changing problem type should generate a new random seed, unless current seed is "0"
+    // (implying user might want to switch problem type for the default Parity setup)
+    // However, to keep it simple and consistent with dataset change, let's always gen a new seed here.
+    state.seed = Math.floor(Math.random() * 900000 + 100000).toString();
+    state.serialize();
+    generateData(); // Uses the new random seed
     parametersChanged = true;
-    reset();
+    reset(); // Reset normally
   });
   problem.property("value", getKeyFromValue(problems, state.problem));
 
@@ -363,8 +378,10 @@ function makeGUI() {
       state.seed = newSeed.trim();
       state.serialize(); // Save the new seed
       userHasInteracted();
-      generateData(false); // Regenerate data with the new seed
-      reset(); // Reset the network with the new seed
+      Math.seedrandom(state.seed); // Seed the RNG with the user's input
+      updateSeedDisplay(); // Show the user's seed
+      generateDataPointsOnly(); // Generate new data points using this seed
+      reset(); // Reset the network (it will use the now-seeded RNG)
     }
   });
 
@@ -1102,19 +1119,24 @@ function hideControls() {
     .attr("href", window.location.href);
 }
 
-function generateData(firstTime = false) {
-  if (!firstTime) {
-    // Change the seed to a new random 6-digit integer string.
-    // This will generate a number between 100000 and 999999, so it won't be "0".
-    state.seed = Math.floor(Math.random() * 900000 + 100000).toString();
-    state.serialize();
-    userHasInteracted();
-  }
-  // If it's the first time and the seed is "0" (hardcoded default), Math.seedrandom("0") is called.
-  // If a user inputs a seed (e.g. "0" or "12345"), state.seed reflects that.
-  // If we just generated a new random int string, state.seed reflects that.
+/**
+ * Sets up the RNG, updates the seed display, and regenerates data points
+ * using the current `state.seed`.
+ * This function does NOT modify `state.seed` itself.
+ */
+function generateData() {
+  // state.seed must be set by the caller if a change is intended.
   Math.seedrandom(state.seed);
-  updateSeedDisplay(); // Update the displayed seed
+  updateSeedDisplay(); // Update the displayed seed based on current state.seed
+  generateDataPointsOnly(); // Generate points using the now-seeded RNG
+}
+
+/**
+ * Generates data points (train and test) based on the current state settings
+ * (dataset, noise, numSamples) and populates trainData and testData.
+ * Assumes Math.random has already been seeded.
+ */
+function generateDataPointsOnly() {
   let numSamples = Math.pow(2, state.numBits);
   let generator = state.problem === Problem.CLASSIFICATION ?
       state.dataset : state.regDataset;
@@ -1145,8 +1167,10 @@ function simulationStarted() {
 
 initTutorial();
 makeGUI();
-generateData(true);
-reset(true, true);
+// state.seed is initialized to "0" by state.ts on first load if not in hash.
+// generateData() will use this seed.
+generateData();
+reset(true, true); // true for onStartup, true for hardcodeWeights (because seed is "0")
 hideControls();
 
 function initCollapsibleSections() {
