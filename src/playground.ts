@@ -20,10 +20,8 @@ import {
   datasets,
   regDatasets,
   activations,
-  problems,
   regularizations,
-  getKeyFromValue,
-  Problem
+  getKeyFromValue
 } from "./state";
 import {Example2D, shuffle, xyToBits, classifyParityData, bitlength, DataGenerator} from "./dataset";
 import {AppendingLineChart} from "./linechart";
@@ -65,7 +63,6 @@ let HIDABLE_CONTROLS = [
   ["Activation", "activation"],
   ["Regularization", "regularization"],
   ["Regularization rate", "regularizationRate"],
-  ["Problem type", "problem"],
   ["Which dataset", "dataset"],
   ["Ratio train data", "percTrainData"],
   ["Noise level", "noise"],
@@ -339,19 +336,6 @@ function makeGUI() {
   });
   regularRate.property("value", state.regularizationRate);
 
-  let problem = d3.select("#problem").on("change", function() {
-    state.problem = problems[this.value];
-    // Changing problem type should generate a new random seed, unless current seed is "0"
-    // (implying user might want to switch problem type for the default Parity setup)
-    // However, to keep it simple and consistent with dataset change, let's always gen a new seed here.
-    state.seed = Math.floor(Math.random() * 900000 + 100000).toString();
-    state.serialize();
-    generateData(); // Uses the new random seed
-    parametersChanged = true;
-    reset(); // Reset normally
-  });
-  problem.property("value", getKeyFromValue(problems, state.problem));
-
   // Add scale to the gradient color map.
   let x = d3.scale.linear().domain([-1, 1]).range([0, 144]);
   let xAxis = d3.svg.axis()
@@ -391,9 +375,9 @@ function makeGUI() {
 }
 
 function updateSeedDisplay() {
-  const currentSeedValueElement = document.getElementById("currentSeedValue");
-  if (currentSeedValueElement) {
-    currentSeedValueElement.innerText = state.seed;
+  const userSeedInput = document.getElementById("userSeed") as HTMLInputElement;
+  if (userSeedInput) {
+    userSeedInput.value = state.seed;
   }
 }
 
@@ -1001,8 +985,8 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
   }
   let numInputs = constructInput(0 , 0).length;
   let shape = [numInputs].concat(state.networkShape).concat([1]);
-  let outputActivation = (state.problem === Problem.REGRESSION) ?
-      nn.Activations.LINEAR : nn.Activations.TANH;
+  // Default to TANH activation for output layer, as problem type is removed.
+  let outputActivation = nn.Activations.TANH;
   network = nn.buildNetwork(shape, state.activation, outputActivation,
       state.regularization, constructInputIds(), state.initZero);
 
@@ -1139,8 +1123,8 @@ function generateData() {
  */
 function generateDataPointsOnly() {
   let numSamples = Math.pow(2, state.numBits);
-  let generator = state.problem === Problem.CLASSIFICATION ?
-      state.dataset : state.regDataset;
+  // Problem type is removed, default to state.dataset for data generation
+  let generator = state.dataset;
   let data = generator(numSamples, state.noise / 100);
   trainData = data;
   testData = data;

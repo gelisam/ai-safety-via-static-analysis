@@ -332,6 +332,13 @@ header h1 .optional {
   border-bottom: solid 1px #ccc;
   color: #333;
   outline: none;
+  background-color: white; /* Ensure input background matches */
+  padding: 6px 0px; /* Match select padding */
+  border-bottom: solid 1px #ccc; /* Match select border */
+}
+
+#top-controls .control input.ui-input:focus {
+  border-bottom-color: #183D4E; /* Match select focus border */
 }
 
 #top-controls .control select:focus {
