@@ -328,7 +328,7 @@ let linkWidthScale = d3.scale.linear()
   .range([1, 10])
   .clamp(true);
 let colorScale = d3.scale.linear<string, number>()
-                     .domain([-1, 0, 1])
+                     .domain([0, 0.5, 1]) // Adjusted for 0-1 output range
                      .range(["#f59322", "#e8eaeb", "#0877bd"])
                      .clamp(true);
 let iter = 0;
@@ -385,6 +385,8 @@ function makeGUI() {
 
   d3.select("#reset-button").on("click", () => {
     // Main reset button now generates a new random seed
+    // Temporarily re-seed Math.random with current time for more entropy before generating the new state.seed
+    Math.seedrandom(new Date().getTime().toString());
     state.seed = Math.floor(Math.random() * 900000 + 100000).toString();
     state.serialize();
     userHasInteracted();
@@ -1067,7 +1069,8 @@ function updateUI(firstStep = false) {
     predict: (point: Example2D) => {
       let input = constructInput(point.x, point.y);
       let output = nn.forwardProp(network, input);
-      return output >= 0 ? 1 : -1; // Convert continuous output to classification
+      // For Clipped ReLU output [0,1], threshold at 0.5 for 0/1 classification
+      return output >= 0.5 ? 1 : 0;
     }
   };
 

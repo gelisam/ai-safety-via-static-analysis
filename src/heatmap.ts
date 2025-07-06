@@ -78,7 +78,7 @@ export class HeatMap {
       return tmpScale(a);
     });
     this.color = d3.scale.quantize()
-                     .domain([-1, 1])
+                     .domain([0, 1]) // Adjusted for 0-1 range
                      .range(colors);
 
     container = container.append("div")
@@ -167,7 +167,8 @@ export class HeatMap {
       for (let x = 0; x < dx; ++x) {
         let value = data[x][y];
         if (discretize) {
-          value = (value >= 0 ? 1 : -1);
+          // Discretize based on 0.5 threshold for 0/1 output
+          value = (value >= 0.5 ? 1 : 0);
         }
         let c = d3.rgb(this.color(value));
         image.data[++p] = c.r;
