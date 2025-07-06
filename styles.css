@@ -257,8 +257,9 @@ header h1 .optional {
   display: -ms-flexbox;
   display: -webkit-flex;
   display: flex;
-  -webkit-justify-content: space-betweenspace-between;
+  -webkit-justify-content: space-between; /* Corrected typo */
   justify-content: space-between;
+  align-items: center; /* Align items vertically centered in the bar */
 }
 
 #top-controls .timeline-controls {
@@ -270,6 +271,7 @@ header h1 .optional {
   align-items: center;
   margin-right: 20px;
   width: 140px;
+  flex-shrink: 0; /* Prevent timeline controls from shrinking */
 }
 
 #play-pause-button .material-icons {
@@ -292,11 +294,17 @@ header h1 .optional {
 }
 
 #top-controls .control {
-  flex-grow: 1;
-  max-width: 180px;
-  min-width: 110px;
-  margin-left: 30px;
+  flex-grow: 1; /* Allow controls to grow and fill space */
+  /* max-width: 180px; Removed this, was too restrictive */
+  min-width: 0; /* Allow controls to shrink to their content's min-width */
+  margin-left: 15px; /* Reduced margin */
   margin-top: 6px;
+  display: flex;
+  flex-direction: column; /* Stack label on top of input/select */
+}
+
+#top-controls .control:first-of-type {
+    margin-left: 0; /* The timeline-controls have margin-right, so first actual control can be 0 */
 }
 
 #top-controls .control .label,
@@ -343,13 +351,23 @@ header h1 .optional {
 
 /* Ensure seed input control group has enough space and aligns items */
 #top-controls .control.ui-seed-input {
-  max-width: 200px; /* Adjusted max-width for the seed control */
-  min-width: 150px; /* Adjusted min-width */
+  flex-grow: 0; /* Do not allow this to grow, take content width */
+  flex-shrink: 0; /* Do not allow this to shrink */
+  /* min-width and max-width removed, should be sized by content */
+  margin-left: 15px; /* Consistent margin */
 }
 
 #top-controls .control.ui-seed-input > div { /* The div containing input and button */
   display: flex;
   align-items: center;
+}
+
+#top-controls .control.ui-seed-input button#applyUserSeed {
+    min-width: 40px; /* Give button a specific min-width if 'Set' is too small */
+    padding: 0 8px; /* Adjust padding */
+    height: 30px; /* Align height with input fields */
+    line-height: 30px; /* Center text in button */
+    margin-left: 5px; /* Keep the margin from inline style */
 }
 
 /* Input width is now controlled by inline style in HTML (e.g., 70px) */
