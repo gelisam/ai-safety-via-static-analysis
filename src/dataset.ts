@@ -69,7 +69,7 @@ export function classifyTwoGaussData(numSamples: number, noise: number):
   }
 
   genGauss(2, 2, 1); // Gaussian with positive examples.
-  genGauss(-2, -2, -1); // Gaussian with negative examples.
+  genGauss(-2, -2, 0); // Gaussian with negative examples (now 0).
   return points;
 }
 
@@ -204,11 +204,12 @@ export function classifyParityData(numSamples: number, noise: number):
     let bits = wordToBits(i);
     let [x,y] = bitsToXY(bits);
     let label: number;
-    // If bits 4, 5, 6, and 7 are all 1, the expected result is 0 (even parity, -1).
+    // If bits 0, 1, 2, and 3 (representing the most significant bits of y) are all 1,
+    // the expected result is 0 (maps from original -1, meaning even parity for this special case).
     if (bits[0] && bits[1] && bits[2] && bits[3]) {
-      label = -1;
+      label = 0; // Was -1
     } else {
-      label = parity(bits) ? 1 : -1;
+      label = parity(bits) ? 1 : 0; // Was 1 (odd parity) or -1 (even parity)
     }
     points.push({x, y, label, bits});
   }
@@ -221,7 +222,7 @@ export function classifyCircleData(numSamples: number, noise: number):
   let points: Example2D[] = [];
   let radius = 5;
   function getCircleLabel(p: Point, center: Point) {
-    return (dist(p, center) < (radius * 0.5)) ? 1 : -1;
+    return (dist(p, center) < (radius * 0.5)) ? 1 : 0; // Changed -1 to 0
   }
 
   // Generate positive points inside the circle.
@@ -252,7 +253,7 @@ export function classifyCircleData(numSamples: number, noise: number):
 
 export function classifyXORData(numSamples: number, noise: number):
     Example2D[] {
-  function getXORLabel(p: Point) { return p.x * p.y >= 0 ? 1 : -1; }
+  function getXORLabel(p: Point) { return p.x * p.y >= 0 ? 1 : 0; } // Changed -1 to 0
 
   let points: Example2D[] = [];
   for (let i = 0; i < numSamples; i++) {

@@ -180,12 +180,30 @@ export function generateNetworkCode(network: nn.Node[][], state: State): string 
         }
 
         let joinedTerms = termsArray.join(" ");
-        // If no terms were added (all weights zero, bias zero), represent as relu(0.0)
+        // If no terms were added (all weights zero, bias zero), represent as 0.0 for the activation function
         if (firstTerm) {
           joinedTerms = "0.0";
         }
 
-        codeLines.push(`${targetName} = relu(${joinedTerms})`);
+        let activationFunctionName = "relu"; // Default for hidden layers
+        if (i === network.length - 1) { // Output layer
+          // Check if the output activation is Clipped ReLU
+          if (state.activation === Activations.CLIPPED_RELU || node.activation === Activations.CLIPPED_RELU) { // Check both state and node actual activation
+            activationFunctionName = "clipped_relu";
+          } else if (node.activation === Activations.TANH) {
+            activationFunctionName = "tanh";
+          } else if (node.activation === Activations.SIGMOID) {
+            activationFunctionName = "sigmoid";
+          } else if (node.activation === Activations.LINEAR) {
+            activationFunctionName = "linear";
+          }
+          // Add other output activations if necessary
+        }
+        // For hidden layers, it currently assumes ReLU based on original code.
+        // If hidden layer activations can vary AND we want to show that in code,
+        // this logic would need to be expanded similar to the output layer.
+
+        codeLines.push(`${targetName} = ${activationFunctionName}(${joinedTerms})`);
       }
       if (i < network.length - 1) {
         codeLines.push(""); // Blank line after each layer
@@ -1169,8 +1187,8 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
   }
   let numInputs = constructInput(0 , 0).length;
   let shape = [numInputs].concat(state.networkShape).concat([1]);
-  // Default to TANH activation for output layer, as problem type is removed.
-  let outputActivation = Activations.TANH;
+  // Use Clipped ReLU for the output layer.
+  let outputActivation = Activations.CLIPPED_RELU;
   network = nn.buildNetwork(shape, state.activation, outputActivation,
       state.regularization, constructInputIds(), state.initZero);
 

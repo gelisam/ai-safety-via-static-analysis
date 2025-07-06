@@ -55,4 +55,8 @@ export class Activations {
     output: x => x,
     der: x => 1
   };
+  public static CLIPPED_RELU: ActivationFunction = {
+    output: x => Math.min(1, Math.max(0, x)),
+    der: x => x > 0 && x < 1 ? 1 : 0
+  };
 }
