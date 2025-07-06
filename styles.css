@@ -343,8 +343,8 @@ header h1 .optional {
 
 /* Ensure seed input control group has enough space and aligns items */
 #top-controls .control.ui-seed-input {
-  max-width: 280px; /* Increased max-width for the seed control */
-  min-width: 220px; /* Adjusted min-width */
+  max-width: 200px; /* Adjusted max-width for the seed control */
+  min-width: 150px; /* Adjusted min-width */
 }
 
 #top-controls .control.ui-seed-input > div { /* The div containing input and button */
@@ -352,10 +352,7 @@ header h1 .optional {
   align-items: center;
 }
 
-#top-controls .control.ui-seed-input input.ui-input {
-  flex-grow: 1; /* Allow input to take available space */
-  width: auto; /* Override fixed width from inline style if necessary */
-}
+/* Input width is now controlled by inline style in HTML (e.g., 70px) */
 
 #top-controls .control select:focus {
   border-bottom-color: #183D4E;
