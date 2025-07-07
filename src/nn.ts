@@ -369,7 +369,7 @@ export function updateNodeRanges(network: Node[][],
   let inputLayer = network[0];
   for (let i = 0; i < inputLayer.length; i++) {
     let node = inputLayer[i];
-    node.range = inputRanges.get(node.id) || [0.0, 1.0];
+    node.range = inputRanges.get(node.id) || [-1.0, 1.0];
   }
 
   // Propagate the ranges for hidden and output layers.

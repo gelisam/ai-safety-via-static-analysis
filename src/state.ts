@@ -106,14 +106,14 @@ export class State {
     {name: "percTrainData", type: Type.NUMBER},
     {name: "x", type: Type.BOOLEAN},
     {name: "y", type: Type.BOOLEAN},
-    {name: "bit0", type: Type.BOOLEAN},
-    {name: "bit1", type: Type.BOOLEAN},
-    {name: "bit2", type: Type.BOOLEAN},
-    {name: "bit3", type: Type.BOOLEAN},
-    {name: "bit4", type: Type.BOOLEAN},
-    {name: "bit5", type: Type.BOOLEAN},
-    {name: "bit6", type: Type.BOOLEAN},
-    {name: "bit7", type: Type.BOOLEAN},
+    {name: "bit0", type: Type.NUMBER},
+    {name: "bit1", type: Type.NUMBER},
+    {name: "bit2", type: Type.NUMBER},
+    {name: "bit3", type: Type.NUMBER},
+    {name: "bit4", type: Type.NUMBER},
+    {name: "bit5", type: Type.NUMBER},
+    {name: "bit6", type: Type.NUMBER},
+    {name: "bit7", type: Type.NUMBER},
     {name: "collectStats", type: Type.BOOLEAN},
     {name: "tutorial", type: Type.STRING},
     {name: "initZero", type: Type.BOOLEAN},
@@ -141,14 +141,14 @@ export class State {
   networkShape: number[] = [8, 8];
   x = false;
   y = false;
-  bit0 = true;
-  bit1 = true;
-  bit2 = true;
-  bit3 = true;
-  bit4 = true;
-  bit5 = true;
-  bit6 = true;
-  bit7 = true;
+  bit0 = 1;
+  bit1 = 1;
+  bit2 = 1;
+  bit3 = 1;
+  bit4 = 1;
+  bit5 = 1;
+  bit6 = 1;
+  bit7 = 1;
   dataset: dataset.DataGenerator = dataset.classifyParityData;
   regDataset: dataset.DataGenerator = dataset.regressPlane;
   seed: string;

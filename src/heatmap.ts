@@ -179,10 +179,11 @@ export class HeatMap {
     context.putImageData(image, 0, 0);
   }
 
-  private bitCount(bits: boolean[]): number {
+  private bitCount(bits: number[]): number {
     let count = 0;
     for (let i = 0; i < bits.length; i++) {
-      if (bits[i]) {
+      // Count number of bits that are 1 (originally true)
+      if (bits[i] === 1) {
         count++;
       }
     }
@@ -226,7 +227,8 @@ export class HeatMap {
       .style("fill", "white")
       .text((d: Example2D) => {
         if (!d.bits) return "";
-        let firstHalf = d.bits.slice(0, 4).map(b => b ? "1" : "0").join("");
+        // Display 1 for 1, and 0 for -1 (to match original display)
+        let firstHalf = d.bits.slice(0, 4).map(b => (b === 1 ? "1" : "0")).join("");
         return firstHalf;
       });
     pointGroups.append("text")
@@ -237,7 +239,8 @@ export class HeatMap {
       .style("fill", "white")
       .text((d: Example2D) => {
         if (!d.bits) return "";
-        let secondHalf = d.bits.slice(4).map(b => b ? "1" : "0").join("");
+        // Display 1 for 1, and 0 for -1 (to match original display)
+        let secondHalf = d.bits.slice(4).map(b => (b === 1 ? "1" : "0")).join("");
         return secondHalf;
       });
     pointGroups.append("text")

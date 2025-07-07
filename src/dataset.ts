@@ -22,7 +22,7 @@ export type Example2D = {
   x: number,
   y: number,
   label: number,
-  bits?: boolean[]
+  bits?: number[]
 };
 
 type Point = {
@@ -151,40 +151,42 @@ export function uncenterize(x: number, y: number):
     (y / (desiredWidth * 2) + 0.5) * naturalWidth
   ];
 }
-export function bitsToXY(bits: boolean[]):
+export function bitsToXY(bits: number[]):
     [number, number] {
   let x = 0;
   let y = 0;
+  // Convert -1/1 bits to 0/1 for calculation
   bits.forEach((bit, i) => {
+    let val = (bit + 1) / 2; // Map -1 to 0, 1 to 1
     if (i >= 4) {
-      x = x * 2 + (bit ? 1 : 0);
+      x = x * 2 + val;
     } else {
-      y = y * 2 + (bit ? 1 : 0);
+      y = y * 2 + val;
     }
   });
   return centerize(x, y);
 }
 export function xyToBits(centeredX: number, centeredY: number):
-    boolean[] {
+    number[] {
   let [x, y] = uncenterize(centeredX, centeredY);
-  let bits = [];
+  let bits: number[] = [];
   for (let i = bitlength; i-->0;) {
     if (i >= 4) {
       let leastSignificantBit = Math.round(x) % 2;
-      bits[i] = leastSignificantBit === 1;
+      bits[i] = leastSignificantBit === 1 ? 1 : -1;
       x = (x - leastSignificantBit) / 2;
     } else {
       let leastSignificantBit = Math.round(y) % 2;
-      bits[i] = leastSignificantBit === 1;
+      bits[i] = leastSignificantBit === 1 ? 1 : -1;
       y = (y - leastSignificantBit) / 2;
     }
   }
   return bits;
 }
-export function wordToBits(word: number): boolean[] {
-  let bits = [];
+export function wordToBits(word: number): number[] {
+  let bits: number[] = [];
   for (let i = bitlength; i-->0;) {
-    bits[i] = word % 2 === 1;
+    bits[i] = (word % 2 === 1) ? 1 : -1;
     word = (word - word % 2) / 2;
   }
   return bits;
@@ -193,19 +195,26 @@ export function classifyParityData(numSamples: number, noise: number):
     Example2D[] {
   let points: Example2D[] = [];
 
-  function parity(bits: boolean[]):
+  // Parity function now expects bits as -1 or 1
+  function parity(bits: number[]):
       boolean {
-    let parity = false;
-    bits.forEach((bit) => parity = parity !== bit);
-    return parity;
+    // Convert to 0/1 for parity calculation: (val + 1) / 2 maps -1 to 0, 1 to 1
+    let p = false;
+    bits.forEach((bit) => p = p !== ((bit + 1) / 2 === 1));
+    return p; // Return the calculated parity 'p'
   }
 
   for (let i = 0; i < numSamples; i++) {
     let bits = wordToBits(i);
     let [x,y] = bitsToXY(bits);
     let label: number;
-    // If bits 4, 5, 6, and 7 are all 1, the expected result is 0 (even parity, -1).
-    if (bits[0] && bits[1] && bits[2] && bits[3]) {
+    // If bits 0, 1, 2, and 3 (representing y value) are all 1 (i.e., number 1),
+    // the expected result is -1 (even parity for these 4 bits).
+    // Note: Original comment referred to bits 4,5,6,7.
+    // bits[0] to bits[3] are for y, bits[4] to bits[7] are for x.
+    // Assuming the special condition is for the "y" component bits.
+    // (1+1)/2 = 1. So bits[0] === 1 checks for the bit being 1.
+    if (bits[0] === 1 && bits[1] === 1 && bits[2] === 1 && bits[3] === 1) {
       label = -1;
     } else {
       label = parity(bits) ? 1 : -1;
