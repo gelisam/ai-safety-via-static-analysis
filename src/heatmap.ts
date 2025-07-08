@@ -212,7 +212,7 @@ export class HeatMap {
 
     // Add background circle with color based on label
     pointGroups.append("circle")
-      .attr("r", 10)
+      .attr("r", 12)
       .style("fill", d => this.color(d.label))
       .style("stroke", "black")
       .style("stroke-width", "1px");
@@ -221,7 +221,7 @@ export class HeatMap {
     pointGroups.append("text")
       .attr("text-anchor", "middle")
       .attr("dy", "-0.6em")
-      .style("font-size", "6px")
+      .style("font-size", "7px")
       .style("font-family", "monospace")
       .style("fill", "white")
       .text((d: Example2D) => {
@@ -232,7 +232,7 @@ export class HeatMap {
     pointGroups.append("text")
       .attr("text-anchor", "middle")
       .attr("dy", "0.3em")
-      .style("font-size", "6px")
+      .style("font-size", "7px")
       .style("font-family", "monospace")
       .style("fill", "white")
       .text((d: Example2D) => {
@@ -243,7 +243,7 @@ export class HeatMap {
     pointGroups.append("text")
       .attr("text-anchor", "middle")
       .attr("dy", "1.1em")
-      .style("font-size", "6px")
+      .style("font-size", "7px")
       .style("font-family", "monospace")
       .style("fill", "white")
       .text((d: Example2D) => {

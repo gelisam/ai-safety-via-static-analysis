@@ -136,7 +136,7 @@ state.getHiddenProps().forEach(prop => {
 let boundary: {[id: string]: number[][]} = {};
 let selectedNodeId: string = null;
 // Plot the heatmap.
-let xDomain: [number, number] = [-6, 6];
+let xDomain: [number, number] = [-5.3, 5.3];
 let heatMap =
     new HeatMap(600, DENSITY, xDomain, xDomain, d3.select("#heatmap"),
         {showAxes: false});
