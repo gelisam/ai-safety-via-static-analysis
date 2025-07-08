@@ -254,7 +254,7 @@ export class HeatMap {
     if (network) {
       // Highlight incorrect predictions with red borders.
       pointGroups.append("circle")
-        .attr("r", 10)
+        .attr("r", 12)
         .style("fill", "none")
         .style("stroke", "red")
         .style("stroke-width", "2px")
