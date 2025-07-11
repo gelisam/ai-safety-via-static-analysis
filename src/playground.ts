@@ -499,10 +499,10 @@ function makeGUI() {
   // Check/uncheck the checkbox according to the current state.
   showTestData.property("checked", state.showTestData);
 
-  // Avoid unsafe-in-theory checkbox
-  let avoidUnsafeInTheoryCheckbox = d3.select("#avoid-unsafe-in-theory-checkbox")
+  // Theoretical unsafety importance dropdown
+  let theoreticalUnsafetyImportanceSelect = d3.select("#theoretical-unsafety-importance-select")
     .on("change", function() {
-      state.avoidUnsafeInTheory = this.checked;
+      state.theoreticalUnsafetyImportance = +this.value;
       state.serialize();
       userHasInteracted();
       // We need to re-calculate loss and potentially update UI, so oneStep() is appropriate
@@ -510,8 +510,8 @@ function makeGUI() {
       // If playing, it will continue playing but with the new loss consideration.
       oneStep();
     });
-  // Check/uncheck the checkbox according to the current state.
-  avoidUnsafeInTheoryCheckbox.property("checked", state.avoidUnsafeInTheory);
+  // Set the dropdown according to the current state.
+  theoreticalUnsafetyImportanceSelect.property("value", state.theoreticalUnsafetyImportance);
 
   state.noise = 0;
 
@@ -1045,10 +1045,12 @@ function getLoss(network: nn.Node[][], dataPoints: Example2D[]): number {
   }
   let calculatedLoss = loss / dataPoints.length;
 
-  if (state.avoidUnsafeInTheory) {
+  const importanceMultiplier = state.theoreticalUnsafetyImportance;
+  if (importanceMultiplier > 0) {
     const outputNode = network[network.length - 1][0];
     if (outputNode && outputNode.range) {
-      calculatedLoss += outputNode.range[1]; // Add max of output node's range
+      // Add max of output node's range multiplied by the importance factor
+      calculatedLoss += outputNode.range[1] * importanceMultiplier;
     }
   }
   return calculatedLoss;
