@@ -499,10 +499,10 @@ function makeGUI() {
   // Check/uncheck the checkbox according to the current state.
   showTestData.property("checked", state.showTestData);
 
-  // Theoretical unsafety importance dropdown
-  let theoreticalUnsafetyImportanceSelect = d3.select("#theoretical-unsafety-importance-select")
+  // Theoretical unsafety circles dropdown
+  let theoreticalUnsafetyCirclesSelect = d3.select("#theoretical-unsafety-circles-select")
     .on("change", function() {
-      state.theoreticalUnsafetyImportance = +this.value;
+      state.theoreticalUnsafetyCircles = +this.value;
       state.serialize();
       userHasInteracted();
       // We need to re-calculate loss and potentially update UI, so oneStep() is appropriate
@@ -511,7 +511,7 @@ function makeGUI() {
       oneStep();
     });
   // Set the dropdown according to the current state.
-  theoreticalUnsafetyImportanceSelect.property("value", state.theoreticalUnsafetyImportance);
+  theoreticalUnsafetyCirclesSelect.property("value", state.theoreticalUnsafetyCircles);
 
   state.noise = 0;
 
@@ -1043,17 +1043,30 @@ function getLoss(network: nn.Node[][], dataPoints: Example2D[]): number {
     let output = nn.forwardProp(network, input);
     loss += nn.Errors.SQUARE.error(output, dataPoint.label);
   }
-  let calculatedLoss = loss / dataPoints.length;
+  // `loss` here is the sum of squared errors from dataPoints
+  let totalLoss = loss; // Initialize totalLoss with the sum of errors from actual data points
 
-  const importanceMultiplier = state.theoreticalUnsafetyImportance;
-  if (importanceMultiplier > 0) {
+  const numCircles = state.theoreticalUnsafetyCircles;
+  if (numCircles > 0) {
     const outputNode = network[network.length - 1][0];
     if (outputNode && outputNode.range) {
-      // Add max of output node's range multiplied by the importance factor
-      calculatedLoss += outputNode.range[1] * importanceMultiplier;
+      const maxOutputRange = outputNode.range[1];
+      // Target for theoretical safety is -1.0 (output for a "safe" classification)
+      const theoreticalTarget = -1.0;
+      // Calculate the squared error for the theoretical unsafety
+      const theoreticalError = nn.Errors.SQUARE.error(maxOutputRange, theoreticalTarget);
+      // Add this error, multiplied by the number of equivalent circles, to the total loss
+      totalLoss += theoreticalError * numCircles;
     }
   }
-  return calculatedLoss;
+
+  const effectiveNumDataPoints = dataPoints.length + numCircles;
+
+  if (effectiveNumDataPoints === 0) {
+    return 0; // Avoid division by zero if there are no data points and no circles
+  }
+
+  return totalLoss / effectiveNumDataPoints;
 }
 
 function updateUI(firstStep = false) {
