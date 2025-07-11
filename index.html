@@ -167,8 +167,8 @@ limitations under the License.
       <div class="content-wrapper">
         <div class="section-content">
           <p>
-            Fold (🔽) this section, click the Reset (🔄) button to set random weights,
-            then click the Play (▶️) button to train the network.
+            Fold <span class="instructions-fold-button"><i class="material-icons instructions-button-icon">keyboard_arrow_down</i></span> this section, click the Reset <span class="instructions-reset-button"><i class="material-icons instructions-button-icon">replay</i></span> button to set random weights,
+            then click the Play <span class="instructions-play-button"><i class="material-icons instructions-button-icon">play_arrow</i></span> button to train the network.
           </p>
           <ol>
             <li>
@@ -195,21 +195,21 @@ limitations under the License.
             </li>
           </ol>
           <p>
-            <span id="instruction-safety-theory">safe in theory</span> is a <i>conservative approximation</i> of <span id="instruction-safety-practice">safe in practice</span>,
-            meaning that while you will encounter some weights which
-            are <span id="instruction-safety-theory-example-unsafe">unsafe in theory</span> but <span id="instruction-safety-practice-example-safe">safe in practice</span>, you will never
-            encounter some weights which are <span id="instruction-safety-theory-example-safe">safe in theory</span> but <span id="instruction-safety-practice-example-unsafe">unsafe in practice</span>.
+            "Safe in theory" is a <i>conservative approximation</i> of "safe in
+            practice", meaning that while you will encounter some weights which
+            are <span id="inst-unsafe-theory-example" class="unsafe">unsafe in theory</span> but <span id="inst-safe-practice-example" class="safe">safe in practice</span>, you will never
+            encounter some weights which are <span id="inst-safe-theory-example" class="safe">safe in theory</span> but <span id="inst-unsafe-practice-example" class="unsafe">unsafe in practice</span>.
           </p>
           <p>
             This is a useful property because calculating whether the model is
-            <span id="instruction-safety-theory-calc">safe in theory</span> is cheap (proportional to the number of weights),
-            while calculating whether the model is <span id="instruction-safety-practice-calc">safe in practice</span> is
+            "safe in theory" is cheap (proportional to the number of weights),
+            while calculating whether the model is "safe in practice" is
             expensive (exponential in the number of inputs in the top row).
             This demo only has 16 inputs in the top row, so that we can compare
             the result of the static analysis with the ground truth, but you can
             easily imagine a generalization of this experiment with more bits
             where it would only be feasible to calculate whether the model is
-            <span id="instruction-safety-theory-feasible">safe in theory</span>.
+            "safe in theory".
           </p>
         </div>
       </div>

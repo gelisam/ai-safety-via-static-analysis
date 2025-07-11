@@ -1299,6 +1299,68 @@ footer .logo {
   color: red;
 }
 
+/* Styles for mini button representations in instructions */
+.instructions-button-icon {
+  font-size: 16px; /* Smaller icon size */
+  vertical-align: middle; /* Align icon with text */
+  padding: 0 2px;
+}
+
+.instructions-fold-button,
+.instructions-reset-button,
+.instructions-play-button {
+  display: inline-flex; /* Use flex to center icon in a button-like shape */
+  align-items: center;
+  justify-content: center;
+  width: 20px; /* Small width */
+  height: 20px; /* Small height */
+  border-radius: 3px; /* Slightly rounded corners */
+  background-color: #f0f0f0; /* Light grey background */
+  border: 1px solid #ccc; /* Light border */
+  color: #333; /* Icon color */
+  margin: 0 2px; /* Small margin around the button */
+  vertical-align: middle;
+}
+
+.instructions-play-button {
+  background-color: #183D4E; /* Match play button color */
+  color: white;
+  border-color: #183D4E;
+}
+
+.instructions-play-button .instructions-button-icon {
+  /* Ensure play icon is properly sized if needed, but font-size should cover it */
+}
+
+
+/* Styles for instruction safety example spans */
+#inst-unsafe-theory-example.unsafe,
+#inst-safe-practice-example.safe,
+#inst-safe-theory-example.safe,
+#inst-unsafe-practice-example.unsafe {
+  padding: 2px 5px; /* Padding inside the rectangle */
+  border-radius: 3px; /* Rounded corners for the rectangle */
+  font-size: 12px; /* Slightly smaller font size */
+  white-space: nowrap; /* Prevent text wrapping */
+  display: inline-block; /* Ensure padding and border are applied correctly */
+  line-height: 1.2; /* Adjust line height for better vertical alignment */
+  vertical-align: baseline;
+}
+
+#inst-unsafe-theory-example.unsafe,
+#inst-unsafe-practice-example.unsafe {
+  background-color: #ffebee; /* Light red background */
+  border: 1px solid #d9534f; /* Red border */
+  color: #b94a48; /* Darker red text */
+}
+
+#inst-safe-practice-example.safe,
+#inst-safe-theory-example.safe {
+  background-color: #e6ffed; /* Light green background */
+  border: 1px solid #5cb85c; /* Green border */
+  color: #3d8b3d; /* Darker green text */
+}
+
 /* Styles for instruction safety spans */
 #instruction-safety-theory,
 #instruction-safety-practice,
