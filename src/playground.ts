@@ -43,6 +43,77 @@ function formatNumber(num: number): string {
 export function generateNetworkCode(network: nn.Node[][], state: State): string {
     if (!network || network.length === 0) return "";
 
+    if (state.networkMode === "16-bit") {
+        let outLine = "";
+        const outputNode = nn.getOutputNode(network);
+        if (outputNode && outputNode.range) {
+            const rangeString = `[${formatNumber(outputNode.range[0])}, ${formatNumber(outputNode.range[1])}] ∋ out`;
+            outLine = `<span id='output-node-range-and-var-text'>${rangeString}</span>`;
+        } else {
+            outLine = "out";
+        }
+        // Find the actual computation for 'out'
+        // This requires a simplified version of the original logic, just for the output node
+        let nodeIdToVarName: {[key: string]: string} = {};
+        const inputLayer = network[0];
+        for (let j = 0; j < inputLayer.length; j++) {
+            const node = inputLayer[j];
+            nodeIdToVarName[node.id] = node.id;
+        }
+        for (let i = 1; i < network.length; i++) {
+            let layer = network[i];
+            for (let j = 0; j < layer.length; j++) {
+                const node = layer[j];
+                if (i === network.length - 1) {
+                    nodeIdToVarName[node.id] = "out";
+                } else {
+                    const layerIndex = i - 1;
+                    const nodeIndex = j;
+                    nodeIdToVarName[node.id] = `x${layerIndex}${nodeIndex}`;
+                }
+            }
+        }
+
+        const node = outputNode;
+        const termsArray: string[] = [];
+        let firstTerm = true;
+        for (let k=0; k<node.inputLinks.length; k++) {
+          const link = node.inputLinks[k];
+          if (Math.abs(link.weight) < 0.001) continue;
+          const sourceName = nodeIdToVarName[link.source.id];
+          const weight = link.weight;
+          if (Math.abs(weight - 1.0) < 0.001) {
+            if (weight > 0) {
+              if (firstTerm) termsArray.push(sourceName); else termsArray.push("+", sourceName);
+              firstTerm = false;
+            } else {
+              if (firstTerm) termsArray.push(`-${sourceName}`); else termsArray.push("-", sourceName);
+              firstTerm = false;
+            }
+          } else {
+            if (weight > 0) {
+              if (firstTerm) termsArray.push(formatNumber(weight), "*", sourceName); else termsArray.push("+", formatNumber(weight), "*", sourceName);
+              firstTerm = false;
+            } else {
+              if (firstTerm) termsArray.push(formatNumber(weight), "*", sourceName); else termsArray.push("-", formatNumber(Math.abs(weight)), "*", sourceName);
+              firstTerm = false;
+            }
+          }
+        }
+        if (Math.abs(node.bias) >= 0.001) {
+          if (node.bias > 0.0) {
+            if (firstTerm) termsArray.push(formatNumber(node.bias)); else termsArray.push("+", formatNumber(node.bias));
+          } else {
+            if (firstTerm) termsArray.push(formatNumber(node.bias)); else termsArray.push("-", formatNumber(Math.abs(node.bias)));
+          }
+        }
+        let joinedTerms = termsArray.join(" ");
+        if (firstTerm) joinedTerms = "0.0";
+        outLine += ` = ${node.activation.name}(${joinedTerms})`;
+
+        return `[...]\n\n${outLine}`;
+    }
+
     let codeLines: string[] = [];
     let nodeIdToVarName: {[key: string]: string} = {};
 
@@ -223,16 +294,27 @@ interface InputFeature {
   label?: string;
 }
 
-let INPUTS: {[name: string]: InputFeature} = {
-  "bit7": {f: (x, y) => xyToBits(x, y)[0] ? 1 : 0, label: "bit7"},
-  "bit6": {f: (x, y) => xyToBits(x, y)[1] ? 1 : 0, label: "bit6"},
-  "bit5": {f: (x, y) => xyToBits(x, y)[2] ? 1 : 0, label: "bit5"},
-  "bit4": {f: (x, y) => xyToBits(x, y)[3] ? 1 : 0, label: "bit4"},
-  "bit3": {f: (x, y) => xyToBits(x, y)[4] ? 1 : 0, label: "bit3"},
-  "bit2": {f: (x, y) => xyToBits(x, y)[5] ? 1 : 0, label: "bit2"},
-  "bit1": {f: (x, y) => xyToBits(x, y)[6] ? 1 : 0, label: "bit1"},
-  "bit0": {f: (x, y) => xyToBits(x, y)[7] ? 1 : 0, label: "bit0"},
-};
+let INPUTS: {[name: string]: InputFeature} = {};
+
+function updateInputs() {
+  INPUTS = {};
+  for (let i = 0; i < state.numBits; i++) {
+    const bitName = `bit${state.numBits - 1 - i}`;
+    // The index for xyToBits corresponds to the bit's position from MSB
+    // e.g., for 8 bits, bit7 is index 0, bit0 is index 7
+    // for 16 bits, bit15 is index 0, bit0 is index 15
+    INPUTS[bitName] = {f: (x, y) => xyToBits(x, y, state.numBits)[i] ? 1 : 0, label: bitName};
+  }
+
+  // Filter out inputs that are hidden. (This part might be redundant if we regenerate INPUTS often)
+  // However, it's good practice to keep if direct manipulation of state for hiding inputs occurs elsewhere.
+  state.getHiddenProps().forEach(prop => {
+    if (prop in INPUTS) {
+      delete INPUTS[prop];
+    }
+  });
+}
+
 
 let HIDABLE_CONTROLS = [
   ["Show test data", "showTestData"],
@@ -304,12 +386,15 @@ class Player {
 
 let state = State.deserializeState();
 
-// Filter out inputs that are hidden.
+// Filter out inputs that are hidden. (This part might be redundant if we regenerate INPUTS often)
+// However, it's good practice to keep if direct manipulation of state for hiding inputs occurs elsewhere.
 state.getHiddenProps().forEach(prop => {
   if (prop in INPUTS) {
     delete INPUTS[prop];
   }
 });
+
+updateInputs(); // Initial call to populate INPUTS based on initial state.numBits
 
 let boundary: {[id: string]: number[][]} = {};
 let selectedNodeId: string = null;
@@ -346,12 +431,19 @@ function enableFeaturesForDataset(dataset: DataGenerator) {
 
   // Enable appropriate features based on dataset
   if (dataset === datasets.parity) {
-    // Enable bit1 through bit8 for parity
+    // Enable all bits based on state.numBits
     for (let i = 0; i < state.numBits; i++) {
+      // The bit names are like bit0, bit1, ... bit(N-1)
+      // The INPUTS keys are bit(N-1) ... bit0
+      // We need to enable state[`bit${i}`]
       state[`bit${i}`] = true;
     }
-    // Set network shape for parity: two layers of 8 neurons each
-    state.networkShape = [8, 8];
+    // Set network shape for parity based on numBits
+    if (state.networkMode === "16-bit") {
+      state.networkShape = [16, 16]; // Or some other appropriate default for 16-bit
+    } else {
+      state.networkShape = [8, 8]; // Default for 8-bit
+    }
   } else {
     // Enable x and y for all other datasets
     state.x = true;
@@ -471,10 +563,11 @@ function makeGUI() {
     .classed("selected", true);
 
   d3.select("#add-layers").on("click", () => {
-    if (state.numHiddenLayers >= 6) {
+    const maxHiddenLayers = state.networkMode === "16-bit" ? 8 : 6;
+    if (state.numHiddenLayers >= maxHiddenLayers) {
       return;
     }
-    state.networkShape[state.numHiddenLayers] = 2;
+    state.networkShape[state.numHiddenLayers] = state.networkMode === "16-bit" ? 8 : 2; // Default nodes for new layer
     state.numHiddenLayers++;
     parametersChanged = true;
     reset();
@@ -553,6 +646,22 @@ function makeGUI() {
 
   // Initial display of the seed
   updateSeedDisplay();
+
+  let networkModeDropdown = d3.select("#networkMode").on("change", function() {
+    state.networkMode = this.value;
+    if (state.networkMode === "16-bit") {
+      state.numBits = 16;
+    } else {
+      state.numBits = 8;
+    }
+    updateInputs(); // Regenerate INPUTS global based on new numBits
+    parametersChanged = true;
+    reset(); // This will regenerate data and rebuild network based on new numBits
+    updateUI(); // Refresh UI elements
+    console.log(`Network mode changed to: ${state.networkMode}, numBits: ${state.numBits}`);
+  });
+  // Set the initial value of the dropdown based on the state
+  networkModeDropdown.property("value", state.networkMode);
 }
 
 function updateSeedDisplay() {
@@ -713,6 +822,24 @@ function drawNetwork(network: nn.Node[][]): void {
   let svg = d3.select("#svg");
   // Remove all svg elements.
   svg.select("g.core").remove();
+  d3.select("#network-too-big-message").remove(); // Remove previous message if any
+
+  if (state.networkMode === "16-bit") {
+    // Display message instead of drawing the network
+    d3.select("#network").append("div")
+      .attr("id", "network-too-big-message")
+      .style("text-align", "center")
+      .style("margin-top", "50px")
+      .text("The network is too big to draw.");
+    // Adjust the height of the features column.
+    let height = getRelativeHeight(d3.select("#network"));
+    d3.select(".column.features").style("height", height + "px");
+    // Clear any existing node canvases or plus/minus controls
+    d3.select("#network").selectAll("div.canvas").remove();
+    d3.select("#network").selectAll("div.plus-minus-neurons").remove();
+    svg.attr("height", 0); // Collapse SVG area
+    return;
+  }
   // Remove all div elements.
   d3.select("#network").selectAll("div.canvas").remove();
   d3.select("#network").selectAll("div.plus-minus-neurons").remove();
@@ -844,7 +971,8 @@ function addPlusMinusControl(x: number, layerIdx: number) {
       .attr("class", "mdl-button mdl-js-button mdl-button--icon")
       .on("click", () => {
         let numNeurons = state.networkShape[i];
-        if (numNeurons >= 8) {
+        const maxNodes = state.networkMode === "16-bit" ? 16 : 8;
+        if (numNeurons >= maxNodes) {
           return;
         }
         state.networkShape[i]++;
@@ -1038,38 +1166,51 @@ function updateUI(firstStep = false) {
   // Update the bias values visually.
   updateBiasesUI(network);
   // Get the decision boundary of the network.
-  updateDecisionBoundary(network, firstStep);
-  let selectedId = selectedNodeId != null ?
-      selectedNodeId : nn.getOutputNode(network).id;
-  heatMap.updateBackground(boundary[selectedId], state.discretize);
+  if (state.networkMode !== "16-bit") {
+    updateDecisionBoundary(network, firstStep);
+    let selectedId = selectedNodeId != null ?
+        selectedNodeId : nn.getOutputNode(network).id;
+    heatMap.updateBackground(boundary[selectedId], state.discretize);
 
-  // Create network wrapper with predict function for highlighting incorrect predictions
-  let networkWrapper = {
-    predict: (point: Example2D) => {
-      let input = constructInput(point.x, point.y);
-      let output = nn.forwardProp(network, input);
-      return output >= 0 ? 1 : -1; // Convert continuous output to classification
+    // Create network wrapper with predict function for highlighting incorrect predictions
+    let networkWrapper = {
+      predict: (point: Example2D) => {
+        let input = constructInput(point.x, point.y);
+        let output = nn.forwardProp(network, input);
+        return output >= 0 ? 1 : -1; // Convert continuous output to classification
+      }
+    };
+
+    // Update all decision boundaries.
+    d3.select("#network").selectAll("div.canvas")
+        .each(function(data: {heatmap: HeatMap, id: string}) {
+      data.heatmap.updateBackground(reduceMatrix(boundary[data.id], 10),
+          state.discretize);
+    });
+
+    // Update heatmap points with incorrect prediction highlighting
+    heatMap.updatePoints(trainData, networkWrapper);
+    heatMap.updateTestPoints(state.showTestData ? testData : [], networkWrapper);
+
+    // Draw the top row highlight
+    let allVisiblePoints = trainData.slice();
+    if (state.showTestData) {
+      allVisiblePoints = allVisiblePoints.concat(testData);
     }
-  };
-
-  // Update all decision boundaries.
-  d3.select("#network").selectAll("div.canvas")
-      .each(function(data: {heatmap: HeatMap, id: string}) {
-    data.heatmap.updateBackground(reduceMatrix(boundary[data.id], 10),
-        state.discretize);
-  });
-
-  // Update heatmap points with incorrect prediction highlighting
-  heatMap.updatePoints(trainData, networkWrapper);
-  heatMap.updateTestPoints(state.showTestData ? testData : [], networkWrapper);
-
-  // Draw the top row highlight
-  let allVisiblePoints = trainData.slice();
-  if (state.showTestData) {
-    allVisiblePoints = allVisiblePoints.concat(testData);
+    // The networkWrapper created earlier in updateUI has the .predict method
+    heatMap.drawTopRowHighlight(allVisiblePoints, networkWrapper);
+  } else {
+    // In 16-bit mode, clear heatmap and show message
+    heatMap.updateBackground(null, false); // Clear background
+    heatMap.updatePoints([], null); // Clear points
+    heatMap.updateTestPoints([], null); // Clear test points
+    d3.select("#heatmap-too-big-message").remove(); // Remove previous message
+    d3.select("#heatmap").append("div")
+      .attr("id", "heatmap-too-big-message")
+      .style("text-align", "center")
+      .style("margin-top", "50px")
+      .text("The input space is too big to draw.");
   }
-  // The networkWrapper created earlier in updateUI has the .predict method
-  heatMap.drawTopRowHighlight(allVisiblePoints, networkWrapper);
 
   function zeroPad(n: number): string {
     let pad = "000000";
@@ -1094,35 +1235,37 @@ function updateUI(firstStep = false) {
   const practiceSafetyContainer = d3.select("#practice-safety-container");
   practiceSafetyContainer.html(""); // Clear previous content
 
-  let isUnsafeInPractice = false;
-  let dataToCheck: Example2D[] = trainData.slice();
-  if (state.showTestData) {
-    dataToCheck = dataToCheck.concat(testData);
-  }
+  if (state.networkMode !== "16-bit") {
+    let isUnsafeInPractice = false;
+    let dataToCheck: Example2D[] = trainData.slice();
+    if (state.showTestData) {
+      dataToCheck = dataToCheck.concat(testData);
+    }
 
-  for (const point of dataToCheck) {
-    const input = constructInput(point.x, point.y);
-    const prediction = nn.forwardProp(network, input);
-    const predictedLabel = prediction >= 0 ? 1 : -1; // Discretize output
-    if (predictedLabel !== point.label) {
-      // Check for critical misclassification (emergency stop ignored)
-      // input[0] to input[3] correspond to bit7 to bit4
-      const isEmergencyStopPattern = input.slice(0, 4).every(bit => bit === 1);
-      if (isEmergencyStopPattern && predictedLabel === 1) { // Predicts incinerate (1) for emergency stop
-        isUnsafeInPractice = true;
-        break;
+    for (const point of dataToCheck) {
+      const input = constructInput(point.x, point.y);
+      const prediction = nn.forwardProp(network, input);
+      const predictedLabel = prediction >= 0 ? 1 : -1; // Discretize output
+      if (predictedLabel !== point.label) {
+        // Check for critical misclassification (emergency stop ignored)
+        // input[0] to input[3] correspond to bit7 to bit4
+        const isEmergencyStopPattern = input.slice(0, 4).every(bit => bit === 1);
+        if (isEmergencyStopPattern && predictedLabel === 1) { // Predicts incinerate (1) for emergency stop
+          isUnsafeInPractice = true;
+          break;
+        }
       }
     }
+
+    const practiceSafetyBox = practiceSafetyContainer.append("div")
+      .attr("id", "practice-safety-box")
+      .attr("class", isUnsafeInPractice ? "unsafe" : "safe");
+
+    practiceSafetyBox.append("span")
+      .attr("id", "practice-safety-text")
+      .attr("class", isUnsafeInPractice ? "unsafe" : "safe")
+      .text(isUnsafeInPractice ? "unsafe in practice" : "safe in practice");
   }
-
-  const practiceSafetyBox = practiceSafetyContainer.append("div")
-    .attr("id", "practice-safety-box")
-    .attr("class", isUnsafeInPractice ? "unsafe" : "safe");
-
-  practiceSafetyBox.append("span")
-    .attr("id", "practice-safety-text")
-    .attr("class", isUnsafeInPractice ? "unsafe" : "safe")
-    .text(isUnsafeInPractice ? "unsafe in practice" : "safe in practice");
 
 
   // Handle "unsafe in theory" highlighting
@@ -1137,34 +1280,41 @@ function updateUI(firstStep = false) {
     existingTheorySafetyBox.remove();
   }
 
-  if (outputNode && outputNode.range && outputRangeAndVarSpan && codeDisplayElement) {
-    const isUnsafeInTheory = outputNode.range[1] >= 0.0;
-    const codeDisplayRect = codeDisplayElement.getBoundingClientRect();
-    // Get bounding rect of the new span "output-node-range-and-var-text"
-    const targetRect = outputRangeAndVarSpan.getBoundingClientRect();
+  // Only show "unsafe in theory" if the full code is displayed (i.e., not 16-bit mode with abbreviated code)
+  // and the necessary elements exist.
+  if (state.networkMode !== "16-bit" || (outputRangeAndVarSpan && codeDisplayElement)) {
+    if (outputNode && outputNode.range && outputRangeAndVarSpan && codeDisplayElement) {
+      const isUnsafeInTheory = outputNode.range[1] >= 0.0;
+      const codeDisplayRect = codeDisplayElement.getBoundingClientRect();
+      const targetRect = outputRangeAndVarSpan.getBoundingClientRect();
 
-    const theorySafetyBox = document.createElement("div");
-    theorySafetyBox.id = "theory-safety-box";
-    theorySafetyBox.className = isUnsafeInTheory ? "unsafe" : "safe";
+      // Ensure targetRect has valid dimensions, otherwise, the box might be misplaced or incorrectly sized.
+      // This can happen if the element is not visible or its content is not yet rendered.
+      if (targetRect.width > 0 && targetRect.height > 0) {
+        const theorySafetyBox = document.createElement("div");
+        theorySafetyBox.id = "theory-safety-box";
+        theorySafetyBox.className = isUnsafeInTheory ? "unsafe" : "safe";
 
-    theorySafetyBox.style.top = (targetRect.top - codeDisplayRect.top + codeDisplayElement.scrollTop) + "px";
-    theorySafetyBox.style.left = (targetRect.left - codeDisplayRect.left + codeDisplayElement.scrollLeft - 2) + "px";
-    theorySafetyBox.style.width = (targetRect.width + 6) + "px";
-    theorySafetyBox.style.height = (targetRect.height + 3) + "px";
+        theorySafetyBox.style.top = (targetRect.top - codeDisplayRect.top + codeDisplayElement.scrollTop) + "px";
+        theorySafetyBox.style.left = (targetRect.left - codeDisplayRect.left + codeDisplayElement.scrollLeft - 2) + "px";
+        theorySafetyBox.style.width = (targetRect.width + 6) + "px";
+        theorySafetyBox.style.height = (targetRect.height + 3) + "px";
 
-    const theorySafetyText = document.createElement("span");
-    theorySafetyText.id = "theory-safety-text";
-    theorySafetyText.className = isUnsafeInTheory ? "unsafe" : "safe";
-    theorySafetyText.textContent = (isUnsafeInTheory ? "unsafe" : "safe") + " in theory";
+        const theorySafetyText = document.createElement("span");
+        theorySafetyText.id = "theory-safety-text";
+        theorySafetyText.className = isUnsafeInTheory ? "unsafe" : "safe";
+        theorySafetyText.textContent = (isUnsafeInTheory ? "unsafe" : "safe") + " in theory";
 
-    theorySafetyBox.appendChild(theorySafetyText);
+        theorySafetyBox.appendChild(theorySafetyText);
 
-    const sectionContent = codeDisplayElement.parentElement;
-    if (sectionContent) {
-        if (window.getComputedStyle(sectionContent).position !== 'relative' && window.getComputedStyle(sectionContent).position !== 'absolute' && window.getComputedStyle(sectionContent).position !== 'fixed') {
-            sectionContent.style.position = "relative";
+        const sectionContent = codeDisplayElement.parentElement;
+        if (sectionContent) {
+            if (window.getComputedStyle(sectionContent).position !== 'relative' && window.getComputedStyle(sectionContent).position !== 'absolute' && window.getComputedStyle(sectionContent).position !== 'fixed') {
+                sectionContent.style.position = "relative";
+            }
+            sectionContent.appendChild(theorySafetyBox);
         }
-        sectionContent.appendChild(theorySafetyBox);
+      }
     }
   }
 
@@ -1295,14 +1445,19 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
   // Make a simple network.
   iter = 0;
   if (shouldUseHardcodedWeights) {
-    for (let inputName in INPUTS) {
-      state[inputName] = false;
+    // Disable all possible bit inputs first
+    for (let i = 0; i < 16; i++) { // Iterate up to max possible bits
+        state[`bit${i}`] = false;
     }
-
+    // Enable current numBits
     for (let i = 0; i < state.numBits; i++) {
       state[`bit${i}`] = true;
     }
   }
+  // updateInputs might be called again in reset, ensure it's consistent
+  // or rely on the one called by networkMode dropdown change.
+  // Calling it here again ensures INPUTS is correct before constructInput.
+  updateInputs();
   let numInputs = constructInput(0 , 0).length;
   let shape = [numInputs].concat(state.networkShape).concat([1]);
   // Default to TANH activation for output layer, as problem type is removed.

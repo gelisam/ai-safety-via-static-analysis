@@ -110,13 +110,22 @@ export class State {
     {name: "bit5", type: Type.BOOLEAN},
     {name: "bit6", type: Type.BOOLEAN},
     {name: "bit7", type: Type.BOOLEAN},
+    {name: "bit8", type: Type.BOOLEAN},
+    {name: "bit9", type: Type.BOOLEAN},
+    {name: "bit10", type: Type.BOOLEAN},
+    {name: "bit11", type: Type.BOOLEAN},
+    {name: "bit12", type: Type.BOOLEAN},
+    {name: "bit13", type: Type.BOOLEAN},
+    {name: "bit14", type: Type.BOOLEAN},
+    {name: "bit15", type: Type.BOOLEAN},
     {name: "collectStats", type: Type.BOOLEAN},
     {name: "tutorial", type: Type.STRING},
     {name: "initZero", type: Type.BOOLEAN},
     {name: "hideText", type: Type.BOOLEAN},
     {name: "dataCollapsed", type: Type.BOOLEAN},
     {name: "featuresCollapsed", type: Type.BOOLEAN},
-    {name: "outputCollapsed", type: Type.BOOLEAN}
+    {name: "outputCollapsed", type: Type.BOOLEAN},
+    {name: "networkMode", type: Type.STRING}
   ];
 
   [key: string]: any;
@@ -145,6 +154,14 @@ export class State {
   bit5 = true;
   bit6 = true;
   bit7 = true;
+  bit8 = true;
+  bit9 = true;
+  bit10 = true;
+  bit11 = true;
+  bit12 = true;
+  bit13 = true;
+  bit14 = true;
+  bit15 = true;
   dataset: dataset.DataGenerator = dataset.classifyParityData;
   regDataset: dataset.DataGenerator = dataset.regressPlane;
   seed: string;
@@ -152,6 +169,7 @@ export class State {
   dataCollapsed = false;
   featuresCollapsed = false;
   outputCollapsed = false;
+  networkMode = "8-bit";
 
   /**
    * Deserializes the state from the url hash.
