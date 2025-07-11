@@ -1124,6 +1124,29 @@ function updateUI(firstStep = false) {
     .attr("class", isUnsafeInPractice ? "unsafe" : "safe")
     .text(isUnsafeInPractice ? "unsafe in practice" : "safe in practice");
 
+  // Update instruction-safety-practice span
+  const instructionPracticeSafetySpan = document.getElementById("instruction-safety-practice");
+  if (instructionPracticeSafetySpan) {
+    instructionPracticeSafetySpan.textContent = isUnsafeInPractice ? "unsafe in practice" : "safe in practice";
+    instructionPracticeSafetySpan.className = isUnsafeInPractice ? "unsafe" : "safe";
+  }
+  // Update example spans for practice safety
+  const instructionPracticeSafeExample = document.getElementById("instruction-safety-practice-example-safe");
+  if (instructionPracticeSafeExample) {
+    instructionPracticeSafeExample.textContent = "safe in practice";
+    instructionPracticeSafeExample.className = "safe";
+  }
+  const instructionPracticeUnsafeExample = document.getElementById("instruction-safety-practice-example-unsafe");
+  if (instructionPracticeUnsafeExample) {
+    instructionPracticeUnsafeExample.textContent = "unsafe in practice";
+    instructionPracticeUnsafeExample.className = "unsafe";
+  }
+  const instructionPracticeCalc = document.getElementById("instruction-safety-practice-calc");
+  if (instructionPracticeCalc) {
+    instructionPracticeCalc.textContent = isUnsafeInPractice ? "unsafe in practice" : "safe in practice";
+    instructionPracticeCalc.className = isUnsafeInPractice ? "unsafe" : "safe";
+  }
+
 
   // Handle "unsafe in theory" highlighting
   let outputNode = nn.getOutputNode(network);
@@ -1137,8 +1160,12 @@ function updateUI(firstStep = false) {
     existingTheorySafetyBox.remove();
   }
 
+  let isUnsafeInTheory = false; // Default to safe
+  if (outputNode && outputNode.range) {
+    isUnsafeInTheory = outputNode.range[1] >= 0.0;
+  }
+
   if (outputNode && outputNode.range && outputRangeAndVarSpan && codeDisplayElement) {
-    const isUnsafeInTheory = outputNode.range[1] >= 0.0;
     const codeDisplayRect = codeDisplayElement.getBoundingClientRect();
     // Get bounding rect of the new span "output-node-range-and-var-text"
     const targetRect = outputRangeAndVarSpan.getBoundingClientRect();
@@ -1167,6 +1194,35 @@ function updateUI(firstStep = false) {
         sectionContent.appendChild(theorySafetyBox);
     }
   }
+
+  // Update instruction-safety-theory span
+  const instructionTheorySafetySpan = document.getElementById("instruction-safety-theory");
+  if (instructionTheorySafetySpan) {
+    instructionTheorySafetySpan.textContent = isUnsafeInTheory ? "unsafe in theory" : "safe in theory";
+    instructionTheorySafetySpan.className = isUnsafeInTheory ? "unsafe" : "safe";
+  }
+  // Update example spans for theory safety
+  const instructionTheorySafeExample = document.getElementById("instruction-safety-theory-example-safe");
+  if (instructionTheorySafeExample) {
+    instructionTheorySafeExample.textContent = "safe in theory";
+    instructionTheorySafeExample.className = "safe";
+  }
+  const instructionTheoryUnsafeExample = document.getElementById("instruction-safety-theory-example-unsafe");
+  if (instructionTheoryUnsafeExample) {
+    instructionTheoryUnsafeExample.textContent = "unsafe in theory";
+    instructionTheoryUnsafeExample.className = "unsafe";
+  }
+  const instructionTheoryCalc = document.getElementById("instruction-safety-theory-calc");
+  if (instructionTheoryCalc) {
+    instructionTheoryCalc.textContent = isUnsafeInTheory ? "unsafe in theory" : "safe in theory";
+    instructionTheoryCalc.className = isUnsafeInTheory ? "unsafe" : "safe";
+  }
+  const instructionTheoryFeasible = document.getElementById("instruction-safety-theory-feasible");
+  if (instructionTheoryFeasible) {
+    instructionTheoryFeasible.textContent = isUnsafeInTheory ? "unsafe in theory" : "safe in theory";
+    instructionTheoryFeasible.className = isUnsafeInTheory ? "unsafe" : "safe";
+  }
+
 
   lineChart.addDataPoint([lossTrain]); // Only add training loss
 }

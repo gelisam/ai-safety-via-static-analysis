@@ -1298,3 +1298,45 @@ footer .logo {
 #theory-safety-text.unsafe {
   color: red;
 }
+
+/* Styles for instruction safety spans */
+#instruction-safety-theory,
+#instruction-safety-practice,
+#instruction-safety-theory-example-safe,
+#instruction-safety-theory-example-unsafe,
+#instruction-safety-practice-example-safe,
+#instruction-safety-practice-example-unsafe,
+#instruction-safety-theory-calc,
+#instruction-safety-practice-calc,
+#instruction-safety-theory-feasible {
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 13px; /* Match existing text */
+  white-space: nowrap;
+}
+
+#instruction-safety-theory.safe,
+#instruction-safety-practice.safe,
+#instruction-safety-theory-example-safe.safe,
+#instruction-safety-practice-example-safe.safe,
+#instruction-safety-theory-calc.safe,
+#instruction-safety-practice-calc.safe,
+#instruction-safety-theory-feasible.safe,
+span.safe { /* General class for safe spans */
+  background-color: #e6ffed; /* Light green background */
+  border: 1px solid #5cb85c; /* Green border */
+  color: #3d8b3d; /* Darker green text */
+}
+
+#instruction-safety-theory.unsafe,
+#instruction-safety-practice.unsafe,
+#instruction-safety-theory-example-unsafe.unsafe,
+#instruction-safety-practice-example-unsafe.unsafe,
+#instruction-safety-theory-calc.unsafe,
+#instruction-safety-practice-calc.unsafe,
+#instruction-safety-theory-feasible.unsafe,
+span.unsafe { /* General class for unsafe spans */
+  background-color: #ffebee; /* Light red background */
+  border: 1px solid #d9534f; /* Red border */
+  color: #b94a48; /* Darker red text */
+}
