@@ -499,6 +499,20 @@ function makeGUI() {
   // Check/uncheck the checkbox according to the current state.
   showTestData.property("checked", state.showTestData);
 
+  // Avoid unsafe-in-theory checkbox
+  let avoidUnsafeInTheoryCheckbox = d3.select("#avoid-unsafe-in-theory-checkbox")
+    .on("change", function() {
+      state.avoidUnsafeInTheory = this.checked;
+      state.serialize();
+      userHasInteracted();
+      // We need to re-calculate loss and potentially update UI, so oneStep() is appropriate
+      // If the simulation is paused, oneStep() will execute once.
+      // If playing, it will continue playing but with the new loss consideration.
+      oneStep();
+    });
+  // Check/uncheck the checkbox according to the current state.
+  avoidUnsafeInTheoryCheckbox.property("checked", state.avoidUnsafeInTheory);
+
   state.noise = 0;
 
   let activationDropdown = d3.select("#activations").on("change", function() {
@@ -1029,7 +1043,15 @@ function getLoss(network: nn.Node[][], dataPoints: Example2D[]): number {
     let output = nn.forwardProp(network, input);
     loss += nn.Errors.SQUARE.error(output, dataPoint.label);
   }
-  return loss / dataPoints.length;
+  let calculatedLoss = loss / dataPoints.length;
+
+  if (state.avoidUnsafeInTheory) {
+    const outputNode = network[network.length - 1][0];
+    if (outputNode && outputNode.range) {
+      calculatedLoss += outputNode.range[1]; // Add max of output node's range
+    }
+  }
+  return calculatedLoss;
 }
 
 function updateUI(firstStep = false) {

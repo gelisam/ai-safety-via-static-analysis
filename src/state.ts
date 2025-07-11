@@ -116,7 +116,8 @@ export class State {
     {name: "hideText", type: Type.BOOLEAN},
     {name: "dataCollapsed", type: Type.BOOLEAN},
     {name: "featuresCollapsed", type: Type.BOOLEAN},
-    {name: "outputCollapsed", type: Type.BOOLEAN}
+    {name: "outputCollapsed", type: Type.BOOLEAN},
+    {name: "avoidUnsafeInTheory", type: Type.BOOLEAN}
   ];
 
   [key: string]: any;
@@ -152,6 +153,7 @@ export class State {
   dataCollapsed = false;
   featuresCollapsed = false;
   outputCollapsed = false;
+  avoidUnsafeInTheory = false;
 
   /**
    * Deserializes the state from the url hash.
