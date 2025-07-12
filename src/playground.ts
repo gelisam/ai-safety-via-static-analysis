@@ -938,6 +938,15 @@ function updateHoverCard(type: HoverType, nodeOrLink?: nn.Node | nn.Link,
   hovercard.select(".value")
     .style("display", null)
     .text(value.toPrecision(2));
+
+  // Display last change
+  let lastChange = (type === HoverType.WEIGHT) ?
+    (nodeOrLink as nn.Link).lastChange :
+    (nodeOrLink as nn.Node).lastChange;
+
+  hovercard.select(".last-change-value")
+    .text(lastChange.toPrecision(2)); // Using toPrecision for consistency
+
   hovercard.select("input")
     .property("value", value.toPrecision(2))
     .style("display", "none");

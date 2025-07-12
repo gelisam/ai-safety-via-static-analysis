@@ -48,6 +48,8 @@ export class Node {
   activation: ActivationFunction;
   /** Range of possible outputs of this node. */
   range: Range;
+  /** The last change applied to the bias of this node. */
+  lastChange: number = 0;
 
   /**
    * Creates a new node with the provided id and activation function.
@@ -127,6 +129,8 @@ export class Link {
   /** Number of accumulated derivatives since the last update. */
   numAccumulatedDers = 0;
   regularization: RegularizationFunction;
+  /** The last change applied to the weight of this link. */
+  lastChange: number = 0;
 
   /**
    * Constructs a link in the neural network initialized with random weight.
@@ -300,35 +304,48 @@ export function updateWeights(network: Node[][], learningRate: number,
       let node = currentLayer[i];
       // Update the node's bias.
       if (node.numAccumulatedDers > 0) {
-        node.bias -= learningRate * node.accInputDer / node.numAccumulatedDers;
+        let biasChange = -learningRate * node.accInputDer / node.numAccumulatedDers;
+        node.bias += biasChange;
+        node.lastChange = biasChange;
         node.accInputDer = 0;
         node.numAccumulatedDers = 0;
+      } else {
+        node.lastChange = 0;
       }
       // Update the weights coming into this node.
       for (let j = 0; j < node.inputLinks.length; j++) {
         let link = node.inputLinks[j];
         if (link.isDead) {
+          link.lastChange = 0; // Ensure dead links show no change
           continue;
         }
-        let regulDer = link.regularization ?
-            link.regularization.der(link.weight) : 0;
+        let oldWeight = link.weight;
+        let newLinkWeight = oldWeight; // Initialize with oldWeight
+
         if (link.numAccumulatedDers > 0) {
-          // Update the weight based on dE/dw.
-          link.weight = link.weight -
-              (learningRate / link.numAccumulatedDers) * link.accErrorDer;
-          // Further update the weight based on regularization.
-          let newLinkWeight = link.weight -
-              (learningRate * regularizationRate) * regulDer;
+          // Calculate change from error derivative
+          let weightUpdateErrorDer = (learningRate / link.numAccumulatedDers) * link.accErrorDer;
+          newLinkWeight -= weightUpdateErrorDer;
+
+          // Calculate change from regularization
+          let regulDer = link.regularization ?
+              link.regularization.der(oldWeight) : 0; // Regularization based on weight *before* this step's update
+          let weightUpdateReg = (learningRate * regularizationRate) * regulDer;
+          newLinkWeight -= weightUpdateReg;
+
           if (link.regularization === RegularizationFunction.L1 &&
-              link.weight * newLinkWeight < 0) {
-            // The weight crossed 0 due to the regularization term. Set it to 0.
-            link.weight = 0;
+              oldWeight * newLinkWeight < 0) { // Check if sign changed due to combined updates
+            // The weight crossed 0. Set it to 0.
+            newLinkWeight = 0;
             link.isDead = true;
-          } else {
-            link.weight = newLinkWeight;
           }
+
+          link.weight = newLinkWeight;
+          link.lastChange = newLinkWeight - oldWeight;
           link.accErrorDer = 0;
           link.numAccumulatedDers = 0;
+        } else {
+          link.lastChange = 0; // No accumulated derivatives, so no change this step
         }
       }
     }
