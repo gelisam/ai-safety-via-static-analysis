@@ -1273,9 +1273,14 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
   }
   player.pause();
 
-  // Set learning rate to 0.3 and update UI
-  state.learningRate = 0.3;
-  d3.select("#learningRate").property("value", "0.3");
+  // Set learning rate based on seed and update UI
+  if (state.seed === "0") {
+    state.learningRate = 0.01;
+    d3.select("#learningRate").property("value", "0.01");
+  } else {
+    state.learningRate = 0.3;
+    d3.select("#learningRate").property("value", "0.3");
+  }
   recentTrainLosses = []; // Also clear recent losses on reset
   state.cooldownActiveUntilIter = 0; // Reset cooldown
 
