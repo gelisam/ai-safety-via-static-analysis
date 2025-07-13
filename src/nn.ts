@@ -309,8 +309,6 @@ export function updateWeights(network: Node[][], learningRate: number,
         node.lastChange = biasChange;
         node.accInputDer = 0;
         node.numAccumulatedDers = 0;
-      } else {
-        node.lastChange = 0;
       }
       // Update the weights coming into this node.
       for (let j = 0; j < node.inputLinks.length; j++) {
@@ -344,8 +342,6 @@ export function updateWeights(network: Node[][], learningRate: number,
           link.lastChange = newLinkWeight - oldWeight;
           link.accErrorDer = 0;
           link.numAccumulatedDers = 0;
-        } else {
-          link.lastChange = 0; // No accumulated derivatives, so no change this step
         }
       }
     }
