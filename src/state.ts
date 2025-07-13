@@ -99,7 +99,6 @@ export class State {
     {name: "seed", type: Type.STRING},
     {name: "discretize", type: Type.BOOLEAN},
     {name: "percTrainData", type: Type.NUMBER},
-    {name: "cooldownActiveUntilIter", type: Type.NUMBER},
     {name: "x", type: Type.BOOLEAN},
     {name: "y", type: Type.BOOLEAN},
     {name: "bit0", type: Type.BOOLEAN},
@@ -149,7 +148,6 @@ export class State {
   dataset: dataset.DataGenerator = dataset.classifyParityData;
   regDataset: dataset.DataGenerator = dataset.regressPlane;
   seed: string;
-  cooldownActiveUntilIter = 0;
   dataCollapsed = false;
   featuresCollapsed = false;
   outputCollapsed = false;

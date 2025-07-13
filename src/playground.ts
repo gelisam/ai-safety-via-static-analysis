@@ -335,8 +335,6 @@ let lossTest = 0;
 let player = new Player();
 let lineChart = new AppendingLineChart(d3.select("#linechart"),
     ["#777"]); // Only one color for training loss
-let recentTrainLosses: number[] = [];
-const LEARNING_RATES = [0.00001, 0.0001, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1, 3, 10];
 
 function enableFeaturesForDataset(dataset: DataGenerator) {
   // First, disable all feature inputs
@@ -945,7 +943,7 @@ function updateHoverCard(type: HoverType, nodeOrLink?: nn.Node | nn.Link,
     (nodeOrLink as nn.Node).lastChange;
 
   hovercard.select(".last-change-value")
-    .text(lastChange.toPrecision(2)); // Using toPrecision for consistency
+    .text(lastChange); // Display raw value for debugging
 
   hovercard.select("input")
     .property("value", value.toPrecision(2))
@@ -1252,47 +1250,6 @@ function oneStep(): void {
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
 
-  // Zigzag detection logic
-  if (trainData.length > 0) { // Only run if there's training data
-    recentTrainLosses.push(lossTrain);
-    if (recentTrainLosses.length > 10) {
-      recentTrainLosses.shift(); // Keep only the last 10 losses
-    }
-
-    if (recentTrainLosses.length === 10 && iter >= state.cooldownActiveUntilIter) {
-      let increases = 0;
-      for (let k = 1; k < recentTrainLosses.length; k++) {
-        if (recentTrainLosses[k] > recentTrainLosses[k - 1]) {
-          increases++;
-        }
-      }
-
-      if (increases >= 5) {
-        console.log(`Zigzag detected at iteration ${iter}. Increases: ${increases}. Current LR: ${state.learningRate}`);
-        const currentLRIndex = LEARNING_RATES.indexOf(state.learningRate);
-        if (currentLRIndex > 0) { // Ensure it's not already the smallest
-          const newLearningRate = LEARNING_RATES[currentLRIndex - 1];
-          state.learningRate = newLearningRate;
-          // Update the UI dropdown
-          (d3.select("#learningRate").node() as HTMLSelectElement).value = newLearningRate.toString();
-          console.log(`Learning rate reduced to ${newLearningRate}`);
-          state.cooldownActiveUntilIter = iter + 30; // Start cooldown
-
-          // Highlight the learning rate dropdown input element
-          const lrInputElement = d3.select("#learningRate").node() as HTMLElement;
-          if (lrInputElement) {
-            lrInputElement.classList.add("lr-input-highlight");
-            setTimeout(() => {
-              lrInputElement.classList.remove("lr-input-highlight");
-            }, 1000); // Highlight for 1 second
-          }
-        } else {
-          console.log("Learning rate already at minimum.");
-        }
-      }
-    }
-  }
-
   updateUI();
 }
 
@@ -1322,8 +1279,6 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
   // Set learning rate to 0.3 and update UI
   state.learningRate = 0.3;
   d3.select("#learningRate").property("value", "0.3");
-  recentTrainLosses = []; // Also clear recent losses on reset
-  state.cooldownActiveUntilIter = 0; // Reset cooldown
 
 
   // Determine if weights should be hardcoded
