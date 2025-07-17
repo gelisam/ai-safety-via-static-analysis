@@ -1075,10 +1075,8 @@ function oneStep(): void {
     let input = constructInput(point.x, point.y);
     nn.forwardProp(network, input);
     nn.backProp(network, point.label, nn.Errors.SQUARE);
-    if ((i + 1) % 10 === 0) {
-      nn.updateWeights(network, currentLearningRate, 0, Activations.RELU); // Regularization rate is now 0
-    }
   });
+  nn.updateWeights(network, currentLearningRate, 0, Activations.RELU); // Regularization rate is now 0
   // Compute the loss.
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
