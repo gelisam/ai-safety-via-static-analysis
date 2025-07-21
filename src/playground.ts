@@ -1071,14 +1071,22 @@ function constructInput(x: number, y: number): number[] {
 function oneStep(): void {
   iter++;
   let currentLearningRate = state.learningRate;
-  trainData.forEach((point, i) => {
+  // Step 1: Shuffle the training data
+  shuffle(trainData);
+
+  // Step 2: Create a mini-batch of 10 random samples
+  const miniBatch = trainData.slice(0, 10);
+
+  // Step 3: Perform forward and backward propagation on the mini-batch
+  miniBatch.forEach(point => {
     let input = constructInput(point.x, point.y);
     nn.forwardProp(network, input);
     nn.backProp(network, point.label, nn.Errors.SQUARE);
-    if ((i + 1) % 10 === 0) {
-      nn.updateWeights(network, currentLearningRate, 0, Activations.RELU); // Regularization rate is now 0
-    }
   });
+
+  // Step 4: Update weights once for the entire mini-batch
+  nn.updateWeights(network, currentLearningRate, 0, Activations.RELU);
+
   // Compute the loss.
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
