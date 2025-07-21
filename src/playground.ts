@@ -971,6 +971,15 @@ function updateUI(firstStep = false) {
   d3.select("#loss-train").text(humanReadable(lossTrain));
   // d3.select("#loss-test").text(humanReadable(lossTest)); // Removed
   d3.select("#iter-number").text(addCommas(zeroPad(iter)));
+  let increases = 0;
+  if (recentTrainLosses.length === 10) {
+    for (let k = 1; k < recentTrainLosses.length; k++) {
+      if (recentTrainLosses[k] > recentTrainLosses[k - 1]) {
+        increases++;
+      }
+    }
+  }
+  d3.select("#loss-increases").text(increases);
   updateCodeDisplay(); // Update code display whenever UI refreshes
 
   // Handle "unsafe in practice" box
@@ -1106,7 +1115,7 @@ function oneStep(): void {
         }
       }
 
-      if (increases >= 5) {
+      if (increases >= 4) {
         console.log(`Zigzag detected at iteration ${iter}. Increases: ${increases}. Current LR: ${state.learningRate}`);
         const currentLRIndex = LEARNING_RATES.indexOf(state.learningRate);
         if (currentLRIndex > 0) { // Ensure it's not already the smallest
