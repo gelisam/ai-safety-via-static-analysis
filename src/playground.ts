@@ -1068,61 +1068,72 @@ function constructInput(x: number, y: number): number[] {
   return input;
 }
 
+function cloneNetwork(network: nn.Node[][]): nn.Node[][] {
+    let newNetwork: nn.Node[][] = [];
+    for (let layer of network) {
+        let newLayer: nn.Node[] = [];
+        for (let node of layer) {
+            let newNode = new nn.Node(node.id, node.activation);
+            newNode.bias = node.bias;
+            newLayer.push(newNode);
+        }
+        newNetwork.push(newLayer);
+    }
+
+    for (let layerIdx = 1; layerIdx < network.length; layerIdx++) {
+        let oldLayer = network[layerIdx];
+        let newLayer = newNetwork[layerIdx];
+        for (let nodeIdx = 0; nodeIdx < oldLayer.length; nodeIdx++) {
+            let oldNode = oldLayer[nodeIdx];
+            let newNode = newLayer[nodeIdx];
+            for (let link of oldNode.inputLinks) {
+                let sourceNode = newNetwork[layerIdx - 1].find(n => n.id === link.source.id);
+                let newLink = new nn.Link(sourceNode, newNode);
+                newLink.weight = link.weight;
+                sourceNode.outputs.push(newLink);
+                newNode.inputLinks.push(newLink);
+            }
+        }
+    }
+
+    return newNetwork;
+}
+
 function oneStep(): void {
   iter++;
-  let currentLearningRate = state.learningRate;
-  trainData.forEach((point, i) => {
-    let input = constructInput(point.x, point.y);
-    nn.forwardProp(network, input);
-    nn.backProp(network, point.label, nn.Errors.SQUARE);
-    if ((i + 1) % 10 === 0) {
-      nn.updateWeights(network, currentLearningRate, 0, Activations.RELU); // Regularization rate is now 0
+  let bestLearningRate = state.learningRate;
+  let minLoss = Infinity;
+  let bestNetwork: nn.Node[][] = null;
+
+  LEARNING_RATES.forEach(learningRate => {
+    let tempNetwork = cloneNetwork(network);
+
+    trainData.forEach((point, i) => {
+      let input = constructInput(point.x, point.y);
+      nn.forwardProp(tempNetwork, input);
+      nn.backProp(tempNetwork, point.label, nn.Errors.SQUARE);
+      if ((i + 1) % 10 === 0) {
+        nn.updateWeights(tempNetwork, learningRate, 0, Activations.RELU);
+      }
+    });
+
+    let currentLoss = getLoss(tempNetwork, trainData);
+    if (currentLoss < minLoss) {
+      minLoss = currentLoss;
+      bestLearningRate = learningRate;
+      bestNetwork = tempNetwork;
     }
   });
+
+  if (bestNetwork) {
+    network = bestNetwork;
+    state.learningRate = bestLearningRate;
+    d3.select("#learningRate").property("value", bestLearningRate);
+  }
+
   // Compute the loss.
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
-
-  // Zigzag detection logic
-  if (trainData.length > 0) { // Only run if there's training data
-    recentTrainLosses.push(lossTrain);
-    if (recentTrainLosses.length > 10) {
-      recentTrainLosses.shift(); // Keep only the last 10 losses
-    }
-
-    if (recentTrainLosses.length === 10 && iter >= state.cooldownActiveUntilIter) {
-      let increases = 0;
-      for (let k = 1; k < recentTrainLosses.length; k++) {
-        if (recentTrainLosses[k] > recentTrainLosses[k - 1]) {
-          increases++;
-        }
-      }
-
-      if (increases >= 5) {
-        console.log(`Zigzag detected at iteration ${iter}. Increases: ${increases}. Current LR: ${state.learningRate}`);
-        const currentLRIndex = LEARNING_RATES.indexOf(state.learningRate);
-        if (currentLRIndex > 0) { // Ensure it's not already the smallest
-          const newLearningRate = LEARNING_RATES[currentLRIndex - 1];
-          state.learningRate = newLearningRate;
-          // Update the UI dropdown
-          (d3.select("#learningRate").node() as HTMLSelectElement).value = newLearningRate.toString();
-          console.log(`Learning rate reduced to ${newLearningRate}`);
-          state.cooldownActiveUntilIter = iter + 30; // Start cooldown
-
-          // Highlight the learning rate dropdown input element
-          const lrInputElement = d3.select("#learningRate").node() as HTMLElement;
-          if (lrInputElement) {
-            lrInputElement.classList.add("lr-input-highlight");
-            setTimeout(() => {
-              lrInputElement.classList.remove("lr-input-highlight");
-            }, 1000); // Highlight for 1 second
-          }
-        } else {
-          console.log("Learning rate already at minimum.");
-        }
-      }
-    }
-  }
 
   updateUI();
 }
