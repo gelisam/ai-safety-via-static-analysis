@@ -329,6 +329,7 @@ let lineChart = new AppendingLineChart(d3.select("#linechart"),
     ["#777"]); // Only one color for training loss
 let recentTrainLosses: number[] = [];
 const LEARNING_RATES = [0.00001, 0.0001, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1, 3, 10];
+let lowestLossByLR: {[key: number]: {loss: number, weights: any}} = {};
 
 function enableFeaturesForDataset() {
   // Set network shape for parity: two layers of 8 neurons each
@@ -350,6 +351,15 @@ function updateCodeDisplay() {
   }
 }
 
+function updateLearningRateDropdown() {
+  let learningRateSelect = d3.select("#learningRate");
+  learningRateSelect.selectAll("option").text(function() {
+    let lr = +this.value;
+    let loss = lowestLossByLR[lr] ? lowestLossByLR[lr].loss.toPrecision(3) : "–";
+    return `${lr} (loss: ${loss})`;
+  });
+}
+
 function makeGUI() {
   // Add collapsible section functionality
   initCollapsibleSections();
@@ -362,6 +372,8 @@ function makeGUI() {
     generateData(); // Uses the new random seed
     reset(); // Reset network (will use the new random seed, no hardcoded weights)
     d3.select("#play-pause-button");
+    lowestLossByLR = {};
+    updateLearningRateDropdown();
   });
 
   d3.select("#play-pause-button").on("click", function () {
@@ -417,6 +429,15 @@ function makeGUI() {
     state.serialize();
     userHasInteracted();
     parametersChanged = true;
+
+    // Reset weights to the best weights for the next highest learning rate.
+    const currentLRIndex = LEARNING_RATES.indexOf(state.learningRate);
+    if (currentLRIndex < LEARNING_RATES.length - 1) {
+      const nextLR = LEARNING_RATES[currentLRIndex + 1];
+      if (lowestLossByLR[nextLR]) {
+        nn.setNetworkWeights(network, lowestLossByLR[nextLR].weights);
+      }
+    }
   });
   learningRate.property("value", state.learningRate);
 
@@ -449,6 +470,7 @@ function makeGUI() {
 
   // Initial display of the seed
   updateSeedDisplay();
+  updateLearningRateDropdown();
 }
 
 function updateSeedDisplay() {
@@ -972,6 +994,7 @@ function updateUI(firstStep = false) {
   // d3.select("#loss-test").text(humanReadable(lossTest)); // Removed
   d3.select("#iter-number").text(addCommas(zeroPad(iter)));
   updateCodeDisplay(); // Update code display whenever UI refreshes
+  updateLearningRateDropdown();
 
   // Handle "unsafe in practice" box
   const practiceSafetyContainer = d3.select("#practice-safety-container");
@@ -1083,45 +1106,12 @@ function oneStep(): void {
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
 
-  // Zigzag detection logic
-  if (trainData.length > 0) { // Only run if there's training data
-    recentTrainLosses.push(lossTrain);
-    if (recentTrainLosses.length > 10) {
-      recentTrainLosses.shift(); // Keep only the last 10 losses
-    }
-
-    if (recentTrainLosses.length === 10 && iter >= state.cooldownActiveUntilIter) {
-      let increases = 0;
-      for (let k = 1; k < recentTrainLosses.length; k++) {
-        if (recentTrainLosses[k] > recentTrainLosses[k - 1]) {
-          increases++;
-        }
-      }
-
-      if (increases >= 5) {
-        console.log(`Zigzag detected at iteration ${iter}. Increases: ${increases}. Current LR: ${state.learningRate}`);
-        const currentLRIndex = LEARNING_RATES.indexOf(state.learningRate);
-        if (currentLRIndex > 0) { // Ensure it's not already the smallest
-          const newLearningRate = LEARNING_RATES[currentLRIndex - 1];
-          state.learningRate = newLearningRate;
-          // Update the UI dropdown
-          (d3.select("#learningRate").node() as HTMLSelectElement).value = newLearningRate.toString();
-          console.log(`Learning rate reduced to ${newLearningRate}`);
-          state.cooldownActiveUntilIter = iter + 30; // Start cooldown
-
-          // Highlight the learning rate dropdown input element
-          const lrInputElement = d3.select("#learningRate").node() as HTMLElement;
-          if (lrInputElement) {
-            lrInputElement.classList.add("lr-input-highlight");
-            setTimeout(() => {
-              lrInputElement.classList.remove("lr-input-highlight");
-            }, 1000); // Highlight for 1 second
-          }
-        } else {
-          console.log("Learning rate already at minimum.");
-        }
-      }
-    }
+  // Update lowest loss for the current learning rate.
+  if (!lowestLossByLR[state.learningRate] || lossTrain < lowestLossByLR[state.learningRate].loss) {
+    lowestLossByLR[state.learningRate] = {
+      loss: lossTrain,
+      weights: nn.getNetworkWeights(network)
+    };
   }
 
   updateUI();

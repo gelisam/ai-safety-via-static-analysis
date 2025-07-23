@@ -308,6 +308,26 @@ export function getOutputNode(network: Node[][]) {
   return network[network.length - 1][0];
 }
 
+export function getNetworkWeights(network: Node[][]): any {
+  let weights = {};
+  forEachNode(network, false, node => {
+    weights[node.id] = {
+      bias: node.bias,
+      weights: node.inputLinks.map(link => link.weight)
+    };
+  });
+  return weights;
+}
+
+export function setNetworkWeights(network: Node[][], weights: any): void {
+  forEachNode(network, false, node => {
+    node.bias = weights[node.id].bias;
+    for (let i = 0; i < node.inputLinks.length; i++) {
+      node.inputLinks[i].weight = weights[node.id].weights[i];
+    }
+  });
+}
+
 /**
  * Updates the ranges of all nodes in the network.
  *
