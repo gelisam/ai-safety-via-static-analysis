@@ -1298,3 +1298,7 @@ footer .logo {
 #theory-safety-text.unsafe {
   color: red;
 }
+
+.ui-cutoff {
+  margin-left: 15px;
+}

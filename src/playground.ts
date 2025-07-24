@@ -420,6 +420,38 @@ function makeGUI() {
   });
   learningRate.property("value", state.learningRate);
 
+  let cutoffFor03 = d3.select("#cutoffFor03").on("change", function() {
+    state.cutoffFor03 = +this.value;
+    state.serialize();
+    userHasInteracted();
+    parametersChanged = true;
+  });
+  cutoffFor03.property("value", state.cutoffFor03);
+
+  let cutoffFor01 = d3.select("#cutoffFor01").on("change", function() {
+    state.cutoffFor01 = +this.value;
+    state.serialize();
+    userHasInteracted();
+    parametersChanged = true;
+  });
+  cutoffFor01.property("value", state.cutoffFor01);
+
+  let cutoffFor003 = d3.select("#cutoffFor003").on("change", function() {
+    state.cutoffFor003 = +this.value;
+    state.serialize();
+    userHasInteracted();
+    parametersChanged = true;
+  });
+  cutoffFor003.property("value", state.cutoffFor003);
+
+  let cutoffFor001 = d3.select("#cutoffFor001").on("change", function() {
+    state.cutoffFor001 = +this.value;
+    state.serialize();
+    userHasInteracted();
+    parametersChanged = true;
+  });
+  cutoffFor001.property("value", state.cutoffFor001);
+
   // Add scale to the gradient color map.
   let x = d3.scale.linear().domain([-1, 1]).range([0, 144]);
   let xAxis = d3.svg.axis()
@@ -1083,45 +1115,21 @@ function oneStep(): void {
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
 
-  // Zigzag detection logic
-  if (trainData.length > 0) { // Only run if there's training data
-    recentTrainLosses.push(lossTrain);
-    if (recentTrainLosses.length > 10) {
-      recentTrainLosses.shift(); // Keep only the last 10 losses
-    }
+  const learningRate = d3.select("#learningRate");
+  const learningRateValue = +learningRate.property("value");
 
-    if (recentTrainLosses.length === 10 && iter >= state.cooldownActiveUntilIter) {
-      let increases = 0;
-      for (let k = 1; k < recentTrainLosses.length; k++) {
-        if (recentTrainLosses[k] > recentTrainLosses[k - 1]) {
-          increases++;
-        }
-      }
-
-      if (increases >= 5) {
-        console.log(`Zigzag detected at iteration ${iter}. Increases: ${increases}. Current LR: ${state.learningRate}`);
-        const currentLRIndex = LEARNING_RATES.indexOf(state.learningRate);
-        if (currentLRIndex > 0) { // Ensure it's not already the smallest
-          const newLearningRate = LEARNING_RATES[currentLRIndex - 1];
-          state.learningRate = newLearningRate;
-          // Update the UI dropdown
-          (d3.select("#learningRate").node() as HTMLSelectElement).value = newLearningRate.toString();
-          console.log(`Learning rate reduced to ${newLearningRate}`);
-          state.cooldownActiveUntilIter = iter + 30; // Start cooldown
-
-          // Highlight the learning rate dropdown input element
-          const lrInputElement = d3.select("#learningRate").node() as HTMLElement;
-          if (lrInputElement) {
-            lrInputElement.classList.add("lr-input-highlight");
-            setTimeout(() => {
-              lrInputElement.classList.remove("lr-input-highlight");
-            }, 1000); // Highlight for 1 second
-          }
-        } else {
-          console.log("Learning rate already at minimum.");
-        }
-      }
-    }
+  if (learningRateValue === 0.3 && lossTrain < state.cutoffFor03) {
+    learningRate.property("value", "0.1");
+    state.learningRate = 0.1;
+  } else if (learningRateValue === 0.1 && lossTrain < state.cutoffFor01) {
+    learningRate.property("value", "0.03");
+    state.learningRate = 0.03;
+  } else if (learningRateValue === 0.03 && lossTrain < state.cutoffFor003) {
+    learningRate.property("value", "0.01");
+    state.learningRate = 0.01;
+  } else if (learningRateValue === 0.01 && lossTrain < state.cutoffFor001) {
+    learningRate.property("value", "0.003");
+    state.learningRate = 0.003;
   }
 
   updateUI();

@@ -88,6 +88,10 @@ export class State {
 
   private static PROPS: Property[] = [
     {name: "learningRate", type: Type.NUMBER},
+    {name: "cutoffFor03", type: Type.NUMBER},
+    {name: "cutoffFor01", type: Type.NUMBER},
+    {name: "cutoffFor003", type: Type.NUMBER},
+    {name: "cutoffFor001", type: Type.NUMBER},
     {name: "networkShape", type: Type.ARRAY_NUMBER},
     {name: "seed", type: Type.STRING},
     {name: "dataCollapsed", type: Type.BOOLEAN},
@@ -97,6 +101,10 @@ export class State {
 
   [key: string]: any;
   learningRate = 0.3;
+  cutoffFor03 = 0.5;
+  cutoffFor01 = 0.5;
+  cutoffFor003 = 0.5;
+  cutoffFor001 = 0.5;
   networkShape: number[] = [8, 8];
   seed: string;
   cooldownActiveUntilIter = 0;
