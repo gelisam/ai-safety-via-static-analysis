@@ -332,7 +332,7 @@ const LEARNING_RATES = [10, 3, 1, 0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.0001, 0.
 
 function enableFeaturesForDataset() {
   // Set network shape for parity: two layers of 8 neurons each
-  state.networkShape = [8, 2];
+  state.networkShape = [8, 8];
   state.numHiddenLayers = state.networkShape.length;
 }
 
