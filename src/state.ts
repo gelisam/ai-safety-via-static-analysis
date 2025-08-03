@@ -101,7 +101,7 @@ export class State {
   [key: string]: any;
   learningRate = 0.3;
   safetyImportance = 0.01;
-  networkShape: number[] = [8, 8];
+  networkShape: number[] = [8, 2];
   seed: string;
   cooldownActiveUntilIter = 0;
   instructionsCollapsed = false;
