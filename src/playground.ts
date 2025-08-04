@@ -548,30 +548,20 @@ function updateHoverCard(type: HoverType, nodeOrLink?: nn.Node | nn.Link,
   let hovercard = d3.select("#hovercard");
   if (type == null) {
     hovercard.style("display", "none");
-    d3.select("#svg").on("click", null);
+    d3.select("#svg").on("pointerdown", null); // Changed from "click"
     return;
   }
-  d3.select("#svg").on("click", () => {
-    hovercard.select(".value").style("display", "none");
-    let input = hovercard.select("input");
-    input.style("display", null);
-    input.on("input", function() {
-      if (this.value != null && this.value !== "") {
-        if (type === HoverType.WEIGHT) {
-          (nodeOrLink as nn.Link).weight = +this.value;
-        } else {
-          (nodeOrLink as nn.Node).bias = +this.value;
-        }
-        updateUI();
-      }
-    });
-    input.on("keypress", () => {
-      if ((d3.event as any).keyCode === 13) {
-        updateHoverCard(type, nodeOrLink, coordinates);
-      }
-    });
-    (input.node() as HTMLInputElement).focus();
-  });
+
+  // Store initial value and position for dragging
+  let initialValue = (type === HoverType.WEIGHT) ?
+    (nodeOrLink as nn.Link).weight :
+    (nodeOrLink as nn.Node).bias;
+  let isDragging = false;
+  let startY = 0;
+
+  const DRAG_SENSITIVITY = 50; // Pixels per unit value change (inverted: lower is more sensitive)
+
+  // Show hovercard
   let value = (type === HoverType.WEIGHT) ?
     (nodeOrLink as nn.Link).weight :
     (nodeOrLink as nn.Node).bias;
@@ -579,15 +569,82 @@ function updateHoverCard(type: HoverType, nodeOrLink?: nn.Node | nn.Link,
   hovercard.style({
     "left": `${coordinates[0] + 20}px`,
     "top": `${coordinates[1]}px`,
-    "display": "block"
+    "display": "block",
+    "cursor": "ns-resize" // Indicate draggable
   });
   hovercard.select(".type").text(name);
   hovercard.select(".value")
     .style("display", null)
     .text(value.toPrecision(2));
-  hovercard.select("input")
-    .property("value", value.toPrecision(2))
+  hovercard.select("input") // Hide the input field by default
     .style("display", "none");
+  // Update the hovercard text to reflect the new interaction
+  hovercard.select("div[style='font-size:10px']").text("Click and drag to edit.");
+
+
+  // Event listener for starting drag
+  hovercard.on("pointerdown.drag", (event: PointerEvent) => {
+    console.log("Hovercard pointerdown triggered.", {
+      pointerType: event.pointerType,
+      clientY: event.clientY,
+      target: event.target,
+      currentTarget: event.currentTarget
+    });
+
+    // Check if the event target is the hovercard itself or its children, but not the input field
+    if (event.target !== hovercard.select("input").node()) {
+      isDragging = true;
+      startY = event.clientY;
+      initialValue = (type === HoverType.WEIGHT) ?
+        (nodeOrLink as nn.Link).weight :
+        (nodeOrLink as nn.Node).bias;
+
+      // Prevent text selection and default drag behaviors
+      event.preventDefault(); // Still useful for desktop and some mobile side-effects
+      hovercard.style("cursor", "ns-resize");
+      hovercard.style("touch-action", "none"); // Critical for preventing scroll on mobile
+      console.log("Set touch-action: none on hovercard.", hovercard.node().style.touchAction);
+
+
+      // Add move and up listeners to the window to capture events globally
+      d3.select(window)
+        .on("pointermove.drag", (e: PointerEvent) => {
+          if (!isDragging) return;
+          e.preventDefault(); // Prevent default actions during move as well
+          let currentY = e.clientY;
+          let dy = startY - currentY; // Inverted Y-axis for intuitive dragging (drag up = increase)
+          let newValue = initialValue + dy / DRAG_SENSITIVITY;
+
+          newValue = parseFloat(newValue.toPrecision(2));
+          console.log("Window pointermove:", { currentY, dy, newValue });
+
+
+          if (type === HoverType.WEIGHT) {
+            (nodeOrLink as nn.Link).weight = newValue;
+          } else {
+            (nodeOrLink as nn.Node).bias = newValue;
+          }
+          // Update hovercard value display
+          hovercard.select(".value").text(newValue.toPrecision(2));
+          updateUI();
+        })
+        .on("pointerup.drag", (e: PointerEvent) => {
+          console.log("Window pointerup triggered.", { pointerType: e.pointerType });
+          if (!isDragging) return;
+          isDragging = false;
+          hovercard.style("cursor", "ns-resize");
+          hovercard.style("touch-action", "auto"); // Restore default touch behavior
+          console.log("Restored touch-action: auto on hovercard.", hovercard.node().style.touchAction);
+          // Remove global listeners
+          d3.select(window).on("pointermove.drag", null).on("pointerup.drag", null);
+          // Potentially call updateUI() again if needed, though it's called on move
+        });
+    }
+  });
+
+
+  // Remove the old d3.select("#svg").on("click", ...) logic
+  // The new logic is self-contained within pointerdown on the hovercard
 }
 
 function drawLink(
