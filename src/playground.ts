@@ -13,8 +13,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-import * as nn from "./nn";
+import * as nn from "./nn-tf";
 import { Activations } from "./activation";
+import * as tf from "@tensorflow/tfjs";
 import { BIT_RANGES } from "./range";
 import {HeatMap, reduceMatrix} from "./heatmap";
 import {
@@ -106,10 +107,10 @@ export function generateNetworkCode(network: nn.Node[][], state: State): string 
           const link = node.inputLinks[k];
 
           // Omitting terms of the form "0.0 * x"
-          if (Math.abs(link.weight) < 0.001) continue;
+          if (Math.abs(link.weight as number) < 0.001) continue;
 
           const sourceName = nodeIdToVarName[link.source.id];
-          const weight = link.weight;
+          const weight = link.weight as number;
 
           // Omitting 1.0 coefficients
           if (Math.abs(weight - 1.0) < 0.001) {
@@ -168,26 +169,26 @@ export function generateNetworkCode(network: nn.Node[][], state: State): string 
         }
 
         // Bias term
-        if (Math.abs(node.bias) >= 0.001) {
-          if (node.bias > 0.0) {
+        if (Math.abs(node.bias as number) >= 0.001) {
+          if ((node.bias as number) > 0.0) {
             if (firstTerm) {
               // x10 = 0.5
-              termsArray.push(formatNumber(node.bias));
+              termsArray.push(formatNumber(node.bias as number));
               firstTerm = false;
             } else {
               // x10 = ... + 0.5
               termsArray.push("+");
-              termsArray.push(formatNumber(node.bias));
+              termsArray.push(formatNumber(node.bias as number));
             }
           } else {
             if (firstTerm) {
               // x10 = -0.5
-              termsArray.push(formatNumber(node.bias));
+              termsArray.push(formatNumber(node.bias as number));
               firstTerm = false;
             } else {
               // x10 = ... - 0.5
               termsArray.push("-");
-              termsArray.push(formatNumber(Math.abs(node.bias)));
+              termsArray.push(formatNumber(Math.abs(node.bias as number)));
             }
           }
         }
@@ -284,11 +285,11 @@ class Player {
   }
 
   private start(localTimerIndex: number) {
-    d3.timer(() => {
+    d3.timer(async () => {
       if (localTimerIndex < this.timerIndex) {
         return true;  // Done.
       }
-      oneStep();
+      await oneStep();
       return false;  // Not done.
     }, 0);
   }
@@ -321,7 +322,7 @@ let colorScale = d3.scale.linear<string, number>()
 let iter = 0;
 let trainData: Example2D[] = [];
 let testData: Example2D[] = [];
-let network: nn.Node[][] = null;
+let network: {model: tf.Sequential, network: nn.Node[][]} = null;
 let lossTrain = 0;
 let lossTest = 0;
 let player = new Player();
@@ -341,7 +342,7 @@ function updateCodeDisplay() {
   if (codeDisplayElement) {
     // Ensure 'network' and 'state' are the currently updated instances
     // These are typically available in the global scope of playground.ts or passed around
-    const codeString = generateNetworkCode(network, state);
+    const codeString = generateNetworkCode(network.network, state);
     codeDisplayElement.innerHTML = codeString; // Use innerHTML to parse spans
   } else {
     // console.warn("code-display element not found");
@@ -503,8 +504,8 @@ function updateWeightsUI(network: nn.Node[][], container) {
         container.select(`#link${link.source.id}-${link.dest.id}`)
             .style({
               "stroke-dashoffset": -iter / 3,
-              "stroke-width": linkWidthScale(Math.abs(link.weight)),
-              "stroke": colorScale(link.weight)
+              "stroke-width": linkWidthScale(Math.abs(link.weight as number)),
+              "stroke": colorScale(link.weight as number)
             })
             .datum(link);
       }
@@ -921,7 +922,7 @@ function updateDecisionBoundary(network: nn.Node[][], firstTime: boolean) {
       let x = xScale(i);
       let y = yScale(j);
       let input = constructInput(x, y);
-      nn.forwardProp(network, input);
+      nn.forwardProp(network.model, network, input);
       nn.forEachNode(network, true, node => {
         boundary[node.id][i][j] = node.output;
       });
@@ -940,7 +941,7 @@ function getLoss(network: nn.Node[][], dataPoints: Example2D[]): number {
   for (let i = 0; i < dataPoints.length; i++) {
     let dataPoint = dataPoints[i];
     let input = constructInput(dataPoint.x, dataPoint.y);
-    let output = nn.forwardProp(network, input);
+    let output = nn.forwardProp(network.model, network, input);
     loss += nn.Errors.SQUARE.error(output, dataPoint.label);
   }
   return loss / dataPoints.length;
@@ -948,20 +949,20 @@ function getLoss(network: nn.Node[][], dataPoints: Example2D[]): number {
 
 function updateUI(firstStep = false) {
   // Update the links visually.
-  updateWeightsUI(network, d3.select("g.core"));
+  updateWeightsUI(network.network, d3.select("g.core"));
   // Update the bias values visually.
-  updateBiasesUI(network);
+  updateBiasesUI(network.network);
   // Get the decision boundary of the network.
-  updateDecisionBoundary(network, firstStep);
+  updateDecisionBoundary(network.network, firstStep);
   let selectedId = selectedNodeId != null ?
-      selectedNodeId : nn.getOutputNode(network).id;
+      selectedNodeId : nn.getOutputNode(network.network).id;
   heatMap.updateBackground(boundary[selectedId]);
 
   // Create network wrapper with predict function for highlighting incorrect predictions
   let networkWrapper = {
     predict: (point: Example2D) => {
       let input = constructInput(point.x, point.y);
-      let output = nn.forwardProp(network, input);
+      let output = nn.forwardProp(network.model, network.network, input);
       return output >= 0 ? 1 : -1; // Convert continuous output to classification
     }
   };
@@ -1011,7 +1012,7 @@ function updateUI(firstStep = false) {
 
   for (const point of dataToCheck) {
     const input = constructInput(point.x, point.y);
-    const prediction = nn.forwardProp(network, input);
+    const prediction = nn.forwardProp(network.model, network.network, input);
     const predictedLabel = prediction >= 0 ? 1 : -1; // Discretize output
     if (predictedLabel !== point.label) {
       // Check for critical misclassification (emergency stop ignored)
@@ -1109,31 +1110,13 @@ function updateLearningRate(loss: number) {
   updateLearningRateDisplay(state.learningRate);
 }
 
-function oneStep(): void {
+async function oneStep(): Promise<void> {
   iter++;
-  shuffle(trainData);
-  // The training is done in batches of 10.
-  let batchSize = 10;
-  for (let i = 0; i < trainData.length / batchSize; i++) {
-    let batch = trainData.slice(i * batchSize, (i + 1) * batchSize);
-    batch.forEach(point => {
-      let input = constructInput(point.x, point.y);
-      nn.forwardProp(network, input, false);
-      nn.backProp(network, point.label, nn.Errors.SQUARE, false);
-    });
-
-    // Theory propagation
-    nn.updateNodeRanges(network, BIT_RANGES);
-    nn.forwardProp(network, [], true);
-    nn.backProp(network, -1, nn.Errors.SQUARE, true);
-
-    // Update weights
-    nn.updateWeights(network, state.learningRate, state.safetyImportance);
-  }
+  await nn.oneStep(network.model, network.network, trainData, state.learningRate, constructInput);
 
   // Compute the loss.
-  lossTrain = getLoss(network, trainData);
-  lossTest = getLoss(network, testData);
+  lossTrain = getLoss(network.network, trainData);
+  lossTest = getLoss(network.network, testData);
   updateLearningRate(lossTrain);
 
   updateUI();
@@ -1147,7 +1130,7 @@ export function getOutputWeights(network: nn.Node[][]): number[] {
       let node = currentLayer[i];
       for (let j = 0; j < node.outputs.length; j++) {
         let output = node.outputs[j];
-        weights.push(output.weight);
+        weights.push(output.weight as number);
       }
     }
   }
@@ -1186,80 +1169,82 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
   let shape = [numInputs].concat(state.networkShape).concat([1]);
   // Default to TANH activation for output layer, as problem type is removed.
   let outputActivation = Activations.TANH;
-  network = nn.buildNetwork(shape, Activations.RELU, outputActivation, constructInputIds());
+  const nn_obj = nn.buildNetwork(shape, Activations.RELU, outputActivation, constructInputIds());
+  network = {model: nn_obj.model, network: nn_obj.network};
 
   if (shouldUseHardcodedWeights) {
     // Initialize weights for the parity network
-    // network[1][i] is 1 if the bitstring has at least i+1 1s
-    for (let i=0; i<network[1].length; i++) {
-      for (let j=0; j<network[0].length; j++) {
-        network[1][i].inputLinks[j].weight = 1;
+    // network.network[1][i] is 1 if the bitstring has at least i+1 1s
+    for (let i=0; i<network.network[1].length; i++) {
+      for (let j=0; j<network.network[0].length; j++) {
+        network.network[1][i].inputLinks[j].weight = 1;
       }
-      network[1][i].bias = -i;
+      network.network[1][i].bias = -i;
     }
 
     // except for the last node, which is 1 if all 4 upper bits are 1
-    let i = network[1].length - 1;
-    for (let j=0; j<network[0].length; j++) {
+    let i = network.network[1].length - 1;
+    for (let j=0; j<network.network[0].length; j++) {
       if (j < 4) {
-        network[1][i].inputLinks[j].weight = 1;
+        network.network[1][i].inputLinks[j].weight = 1;
       } else {
-        network[1][i].inputLinks[j].weight = 0;
+        network.network[1][i].inputLinks[j].weight = 0;
       }
     }
-    network[1][i].bias = -3;
+    network.network[1][i].bias = -3;
 
-    if (network[2]) {
-      // network[2][i] is 1 if the bitstring has exactly i+1 1s
-      for (let i=0; i<network[2].length-1; i++) {
-        for (let j=0; j<network[1].length; j++) {
-          network[2][i].inputLinks[j].weight = 0;
+    if (network.network[2]) {
+      // network.network[2][i] is 1 if the bitstring has exactly i+1 1s
+      for (let i=0; i<network.network[2].length-1; i++) {
+        for (let j=0; j<network.network[1].length; j++) {
+          network.network[2][i].inputLinks[j].weight = 0;
         }
-        network[2][i].inputLinks[i].weight = 1;
-        if (i+1 < network[1].length) {
-          network[2][i].inputLinks[i+1].weight = -2;
+        network.network[2][i].inputLinks[i].weight = 1;
+        if (i+1 < network.network[1].length) {
+          network.network[2][i].inputLinks[i+1].weight = -2;
         }
-        network[2][i].bias = 0;
+        network.network[2][i].bias = 0;
       }
 
       // except for the last node, repeats the last node of the previous layer
-      let i = network[2].length - 1;
-      for (let j=0; j<network[1].length; j++) {
-        if (j == network[2].length - 1) {
-          network[2][i].inputLinks[j].weight = 1;
+      let i = network.network[2].length - 1;
+      for (let j=0; j<network.network[1].length; j++) {
+        if (j == network.network[2].length - 1) {
+          network.network[2][i].inputLinks[j].weight = 1;
         } else {
-          network[2][i].inputLinks[j].weight = 0;
+          network.network[2][i].inputLinks[j].weight = 0;
         }
       }
-      network[2][i].bias = 0;
+      network.network[2][i].bias = 0;
     }
 
-    if (network[3]) {
-      // network[3][0] is 2+ if the bitstring has an odd number of 1s
+    if (network.network[3]) {
+      // network.network[3][0] is 2+ if the bitstring has an odd number of 1s
       // and -2 otherwise
       let i = 0;
-      for (let j=0; j<network[2].length - 1; j++) {
+      for (let j=0; j<network.network[2].length - 1; j++) {
         if (j % 2 == 0) {
-          network[3][i].inputLinks[j].weight = 4;
+          network.network[3][i].inputLinks[j].weight = 4;
         } else {
-          network[3][i].inputLinks[j].weight = 0;
+          network.network[3][i].inputLinks[j].weight = 0;
         }
       }
-      network[3][i].bias = -2;
+      network.network[3][i].bias = -2;
 
       // except if the last node is set, in which case we want to produce -2 or
       // less even if the above contributes 4*4 + 4*4 + 4*4 + 4*4 - 2 = 62
-      let j = network[2].length - 1;
-      network[3][i].inputLinks[j].weight = -64;
+      let j = network.network[2].length - 1;
+      network.network[3][i].inputLinks[j].weight = -64;
     }
+    nn.setWeights(network.model, network.network);
   }
 
-  lossTrain = getLoss(network, trainData);
-  lossTest = getLoss(network, testData);
+  lossTrain = getLoss(network.network, trainData);
+  lossTest = getLoss(network.network, testData);
   updateLearningRate(lossTrain);
   // Update node ranges after network initialization or weight hardcoding
-  nn.updateNodeRanges(network, BIT_RANGES);
-  drawNetwork(network);
+  nn.updateNodeRanges(network.network, BIT_RANGES);
+  drawNetwork(network.network);
   updateUI(true);
   updateSeedDisplay(); // Ensure seed display is current
 }
