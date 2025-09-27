@@ -33,29 +33,29 @@ export class Node {
   output: number;
   /** Error derivative with respect to this node's output. */
   outputDer = 0;
-  /** Error derivative with respect to this node's total input. */
-  inputDer = 0;
   /**
-   * Accumulated error derivative with respect to this node's total input since
-   * the last update. This derivative equals dE/db where b is the node's
-   * bias term.
+   * The error derivative with respect to this node's total input.
+   * Also known as delta.
    */
-  accInputDer = 0;
+  delta = 0;
   /**
-   * Number of accumulated err. derivatives with respect to the total input
-   * since the last update.
+   * Accumulated gradient for the bias since the last update.
    */
-  numAccumulatedDers = 0;
+  accBiasGradient = 0;
   /**
-   * Accumulated error derivative with respect to this node's total input since
-   * the last update, but for the theoretical calculations.
+   * Number of accumulated gradients for the bias since the last update.
    */
-  theoryAccInputDer = 0;
+  numAccumulatedGradients = 0;
   /**
-   * Number of accumulated err. derivatives with respect to the total input
-   * since the last update, but for the theoretical calculations.
+   * Accumulated gradient for the bias since the last update, but for the
+   * theoretical calculations.
    */
-  numTheoryAccumulatedDers = 0;
+  theoryAccBiasGradient = 0;
+  /**
+   * Number of accumulated gradients for the bias since the last update,
+   * but for the theoretical calculations.
+   */
+  numTheoryAccumulatedGradients = 0;
   /** Activation function that takes total input and returns node's output */
   activation: ActivationFunction;
   /** Range of possible values for the sum of the inputs * weights + bias. */
@@ -113,14 +113,20 @@ export class Link {
   dest: Node;
   weight = Math.random() - 0.5; // Will use seedrandom via playground.ts
   isDead = false;
-  /** Accumulated error derivative since the last update. */
-  accErrorDer = 0;
-  /** Number of accumulated derivatives since the last update. */
-  numAccumulatedDers = 0;
-  /** Accumulated error derivative since the last update, but for the theoretical calculations. */
-  theoryAccErrorDer = 0;
-  /** Number of accumulated derivatives since the last update, but for the theoretical calculations. */
-  numTheoryAccumulatedDers = 0;
+  /** Accumulated gradient for the weight since the last update. */
+  accWeightGradient = 0;
+  /** Number of accumulated gradients for the weight since the last update. */
+  numAccumulatedGradients = 0;
+  /**
+   * Accumulated gradient for the weight since the last update, but for
+   * the theoretical calculations.
+   */
+  theoryAccWeightGradient = 0;
+  /**
+   * Number of accumulated gradients for the weight since the last update,
+   * but for the theoretical calculations.
+   */
+  numTheoryAccumulatedGradients = 0;
 
   /**
    * Constructs a link in the neural network initialized with random weight.
@@ -239,15 +245,16 @@ export function backProp(network: Node[][], target: number,
     // 2) each of its input weights.
     for (let i = 0; i < currentLayer.length; i++) {
       const node = currentLayer[i];
-      node.inputDer = node.outputDer * node.activation.der(theory ? node.totalInputRange[1] : node.totalInput);
+      node.delta = node.outputDer *
+          node.activation.der(
+              theory ? node.totalInputRange[1] : node.totalInput);
       if (theory) {
-        node.theoryAccInputDer += node.inputDer;
-        node.numTheoryAccumulatedDers++;
+        node.theoryAccBiasGradient += node.delta;
+        node.numTheoryAccumulatedGradients++;
       } else {
-        node.accInputDer += node.inputDer;
-        node.numAccumulatedDers++;
+        node.accBiasGradient += node.delta;
+        node.numAccumulatedGradients++;
       }
-
     }
 
     // Error derivative with respect to each weight coming into the node.
@@ -258,14 +265,15 @@ export function backProp(network: Node[][], target: number,
         if (link.isDead) {
           continue;
         }
-        const sourceValue = theory ? link.source.outputRange[1] : link.source.output;
-        const errorDer = node.inputDer * sourceValue;
+        const sourceValue =
+            theory ? link.source.outputRange[1] : link.source.output;
+        const weightGradient = node.delta * sourceValue;
         if (theory) {
-          link.theoryAccErrorDer += errorDer;
-          link.numTheoryAccumulatedDers++;
+          link.theoryAccWeightGradient += weightGradient;
+          link.numTheoryAccumulatedGradients++;
         } else {
-          link.accErrorDer += errorDer;
-          link.numAccumulatedDers++;
+          link.accWeightGradient += weightGradient;
+          link.numAccumulatedGradients++;
         }
       }
     }
@@ -279,7 +287,7 @@ export function backProp(network: Node[][], target: number,
       node.outputDer = 0;
       for (let j = 0; j < node.outputs.length; j++) {
         const output = node.outputs[j];
-        node.outputDer += output.weight * output.dest.inputDer;
+        node.outputDer += output.weight * output.dest.delta;
       }
     }
   }
@@ -296,22 +304,28 @@ export function updateWeights(network: Node[][], learningRate: number,
     for (let i = 0; i < currentLayer.length; i++) {
       let node = currentLayer[i];
       // Update the node's bias.
-      let normalAccInputDer = node.accInputDer;
-      let numNormalAccumulatedDers = node.numAccumulatedDers;
-      let theoryAccInputDer = node.theoryAccInputDer;
-      let numTheoryAccumulatedDers = node.numTheoryAccumulatedDers;
+      let normalAccBiasGradient = node.accBiasGradient;
+      let numNormalAccumulatedGradients = node.numAccumulatedGradients;
+      let theoryAccBiasGradient = node.theoryAccBiasGradient;
+      let numTheoryAccumulatedGradients = node.numTheoryAccumulatedGradients;
 
-      if (numNormalAccumulatedDers > 0 || numTheoryAccumulatedDers > 0) {
-        let normalGrad = numNormalAccumulatedDers > 0 ? normalAccInputDer / numNormalAccumulatedDers : 0;
-        let theoryGrad = numTheoryAccumulatedDers > 0 ? theoryAccInputDer / numTheoryAccumulatedDers : 0;
+      if (numNormalAccumulatedGradients > 0 ||
+          numTheoryAccumulatedGradients > 0) {
+        let normalGrad = numNormalAccumulatedGradients > 0 ?
+            normalAccBiasGradient / numNormalAccumulatedGradients :
+            0;
+        let theoryGrad = numTheoryAccumulatedGradients > 0 ?
+            theoryAccBiasGradient / numTheoryAccumulatedGradients :
+            0;
 
-        let totalGrad = (1 - safetyImportance) * normalGrad + safetyImportance * theoryGrad;
+        let totalGrad =
+            (1 - safetyImportance) * normalGrad + safetyImportance * theoryGrad;
         node.bias -= learningRate * totalGrad;
 
-        node.accInputDer = 0;
-        node.numAccumulatedDers = 0;
-        node.theoryAccInputDer = 0;
-        node.numTheoryAccumulatedDers = 0;
+        node.accBiasGradient = 0;
+        node.numAccumulatedGradients = 0;
+        node.theoryAccBiasGradient = 0;
+        node.numTheoryAccumulatedGradients = 0;
       }
 
       // Update the weights coming into this node.
@@ -321,22 +335,28 @@ export function updateWeights(network: Node[][], learningRate: number,
           continue;
         }
 
-        let normalAccErrorDer = link.accErrorDer;
-        let numNormalAccumulatedDers = link.numAccumulatedDers;
-        let theoryAccErrorDer = link.theoryAccErrorDer;
-        let numTheoryAccumulatedDers = link.numTheoryAccumulatedDers;
+        let normalAccWeightGradient = link.accWeightGradient;
+        let numNormalAccumulatedGradients = link.numAccumulatedGradients;
+        let theoryAccWeightGradient = link.theoryAccWeightGradient;
+        let numTheoryAccumulatedGradients = link.numTheoryAccumulatedGradients;
 
-        if (numNormalAccumulatedDers > 0 || numTheoryAccumulatedDers > 0) {
-          let normalGrad = numNormalAccumulatedDers > 0 ? normalAccErrorDer / numNormalAccumulatedDers : 0;
-          let theoryGrad = numTheoryAccumulatedDers > 0 ? theoryAccErrorDer / numTheoryAccumulatedDers : 0;
+        if (numNormalAccumulatedGradients > 0 ||
+            numTheoryAccumulatedGradients > 0) {
+          let normalGrad = numNormalAccumulatedGradients > 0 ?
+              normalAccWeightGradient / numNormalAccumulatedGradients :
+              0;
+          let theoryGrad = numTheoryAccumulatedGradients > 0 ?
+              theoryAccWeightGradient / numTheoryAccumulatedGradients :
+              0;
 
-          let totalGrad = (1 - safetyImportance) * normalGrad + safetyImportance * theoryGrad;
+          let totalGrad =
+              (1 - safetyImportance) * normalGrad + safetyImportance * theoryGrad;
           link.weight = link.weight - learningRate * totalGrad;
 
-          link.accErrorDer = 0;
-          link.numAccumulatedDers = 0;
-          link.theoryAccErrorDer = 0;
-          link.numTheoryAccumulatedDers = 0;
+          link.accWeightGradient = 0;
+          link.numAccumulatedGradients = 0;
+          link.theoryAccWeightGradient = 0;
+          link.numTheoryAccumulatedGradients = 0;
         }
       }
     }
