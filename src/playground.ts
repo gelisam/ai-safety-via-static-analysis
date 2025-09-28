@@ -350,32 +350,6 @@ function updateCodeDisplay() {
   }
 }
 
-function updateLearningRateDisplay(newRate: number, highlight = true) {
-    const learningRateValues = document.getElementById('learning-rate-values');
-    if (!learningRateValues) return;
-
-    const learningRates = Array.from(learningRateValues.children).map(d => parseFloat(d.innerHTML));
-    const newIndex = learningRates.indexOf(newRate);
-
-    if (newIndex !== -1) {
-        const currentTransform = learningRateValues.style.transform;
-        const newTransform = `translateY(-${newIndex * 20}px)`;
-
-        if (currentTransform === newTransform) {
-            return;
-        }
-
-        learningRateValues.style.transform = newTransform;
-
-        if (highlight) {
-            learningRateValues.classList.add('highlight');
-            setTimeout(() => {
-                learningRateValues.classList.remove('highlight');
-            }, 1200);
-        }
-    }
-}
-
 function makeGUI() {
   // Add collapsible section functionality
   initCollapsibleSections();
@@ -438,6 +412,15 @@ function makeGUI() {
     reset();
   });
 
+
+  let learningRateSlider = d3.select("#learningRateSlider").on("input", function() {
+    state.learningRate = LEARNING_RATES[+this.value];
+    d3.select("#learningRateValue").text(state.learningRate);
+    state.serialize();
+    userHasInteracted();
+  });
+  learningRateSlider.property("value", LEARNING_RATES.indexOf(state.learningRate));
+  d3.select("#learningRateValue").text(state.learningRate);
 
   let safetySlider = d3.select("#safetySlider").on("input", function() {
     state.safetyImportance = +this.value / 100;
@@ -1097,19 +1080,6 @@ function constructInput(x: number, y: number): number[] {
   return input;
 }
 
-function updateLearningRate(loss: number) {
-  if (loss <= 0.10) {
-    state.learningRate = 0.01;
-  } else if (loss <= 0.25) {
-    state.learningRate = 0.03;
-  } else if (loss <= 0.40) {
-    state.learningRate = 0.1;
-  } else {
-    state.learningRate = 0.3;
-  }
-  updateLearningRateDisplay(state.learningRate);
-}
-
 function oneStep(): void {
   iter++;
   shuffle(trainData);
@@ -1134,7 +1104,6 @@ function oneStep(): void {
   // Compute the loss.
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
-  updateLearningRate(lossTrain);
 
   // Update the ranges one last time to match the updated weights.
   nn.forwardPropRanges(network, BIT_RANGES);
@@ -1166,7 +1135,8 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
 
   // Set learning rate to 0.3 and update UI
   state.learningRate = 0.3;
-  updateLearningRateDisplay(state.learningRate, false);
+  d3.select("#learningRateSlider").property("value", LEARNING_RATES.indexOf(state.learningRate));
+  d3.select("#learningRateValue").text(state.learningRate);
   recentTrainLosses = []; // Also clear recent losses on reset
 
 
