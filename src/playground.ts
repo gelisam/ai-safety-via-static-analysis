@@ -1228,7 +1228,6 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
 
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
-  updateLearningRate(lossTrain);
   // Update node ranges after network initialization or weight hardcoding
   nn.forwardPropRanges(network, BIT_RANGES);
   drawNetwork(network);
