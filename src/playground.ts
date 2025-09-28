@@ -1133,10 +1133,6 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
   }
   player.pause();
 
-  // Set learning rate to 0.3 and update UI
-  state.learningRate = 0.3;
-  d3.select("#learningRateSlider").property("value", LEARNING_RATES.indexOf(state.learningRate));
-  d3.select("#learningRateValue").text(state.learningRate);
   recentTrainLosses = []; // Also clear recent losses on reset
 
 
