@@ -328,7 +328,7 @@ let player = new Player();
 let lineChart = new AppendingLineChart(d3.select("#linechart"),
     ["#777"]); // Only one color for training loss
 let recentTrainLosses: number[] = [];
-const LEARNING_RATES = [10, 3, 1, 0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.0001, 0.00001];
+const LEARNING_RATES = [0.00001, 0.0001, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1, 3, 10];
 
 function enableFeaturesForDataset() {
   // Set network shape for parity: two layers of 8 neurons each
