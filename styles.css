@@ -1161,45 +1161,7 @@ footer .logo {
   display: flex;
 }
 
-.header-wrapper {
-  cursor: pointer;
-  user-select: none;
-  background-color: #eee;
-  border-right: 1px solid #ddd;
-  width: 30px;
-  height: 750px;
-}
-
-.header-wrapper:hover {
-  background-color: rgba(0,0,0,0.1);
-}
-
-.section-header {
-  display: -webkit-box;
-  display: -moz-box;
-  display: -ms-flexbox;
-  display: -webkit-flex;
-  display: flex;
-  align-items: center;
-  justify-content: end;
-  transform: rotate(-90deg);
-}
-
-.section-header h4 {
-  margin: 0;
-}
-
-.collapse-button {
-  margin-left: 5px;
-  margin-right: 15px;
-  width: 18px;
-  height: 18px;
-  transition: transform 0.3s;
-  transform: rotate(0deg)
-}
-
 .content-wrapper {
-  transition: width 0.3s ease-out, padding 0.3s ease-out;
   width: 200px;
   overflow: hidden;
   margin: 0;
