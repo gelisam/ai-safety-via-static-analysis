@@ -477,6 +477,15 @@ function makeGUI() {
 
   // Initial display of the seed
   updateSeedDisplay();
+
+  // Fast updates checkbox
+  const fastUpdatesCheckbox = d3.select("#fast-updates-checkbox");
+  fastUpdatesCheckbox.property("checked", state.fastUpdates);
+  fastUpdatesCheckbox.on("change", function() {
+    state.fastUpdates = this.checked;
+    state.serialize();
+    userHasInteracted();
+  });
 }
 
 function updateSeedDisplay() {
@@ -947,6 +956,29 @@ function getLoss(network: nn.Node[][], dataPoints: Example2D[]): number {
 }
 
 function updateUI(firstStep = false) {
+  function zeroPad(n: number): string {
+    let pad = "000000";
+    return (pad + n).slice(-pad.length);
+  }
+
+  function addCommas(s: string): string {
+    return s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  function humanReadable(n: number): string {
+    return n.toFixed(3);
+  }
+
+  // Update loss, iteration number and loss chart.
+  d3.select("#loss-train").text(humanReadable(lossTrain));
+  d3.select("#iter-number").text(addCommas(zeroPad(iter)));
+  lineChart.addDataPoint([lossTrain]);
+
+  // Conditionally skip the rest of the UI updates for performance.
+  if (state.fastUpdates && !firstStep) {
+    return;
+  }
+
   // Update the links visually.
   updateWeightsUI(network, d3.select("g.core"));
   // Update the bias values visually.
@@ -982,23 +1014,6 @@ function updateUI(firstStep = false) {
   // The networkWrapper created earlier in updateUI has the .predict method
   heatMap.drawTopRowHighlight(allVisiblePoints, networkWrapper);
 
-  function zeroPad(n: number): string {
-    let pad = "000000";
-    return (pad + n).slice(-pad.length);
-  }
-
-  function addCommas(s: string): string {
-    return s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  }
-
-  function humanReadable(n: number): string {
-    return n.toFixed(3);
-  }
-
-  // Update loss and iteration number.
-  d3.select("#loss-train").text(humanReadable(lossTrain));
-  // d3.select("#loss-test").text(humanReadable(lossTest)); // Removed
-  d3.select("#iter-number").text(addCommas(zeroPad(iter)));
   updateCodeDisplay(); // Update code display whenever UI refreshes
 
   // Handle "unsafe in practice" box
@@ -1077,8 +1092,6 @@ function updateUI(firstStep = false) {
         sectionContent.appendChild(theorySafetyBox);
     }
   }
-
-  lineChart.addDataPoint([lossTrain]); // Only add training loss
 }
 
 function constructInputIds(): string[] {
