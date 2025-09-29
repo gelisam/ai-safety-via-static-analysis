@@ -1216,8 +1216,9 @@ function oneStep(): void {
   updateLearningRate(lossTrain);
 
   // Check for early stopping condition.
-  if (lossTrain < minLoss) {
-    minLoss = lossTrain;
+  const roundedLoss = parseFloat(lossTrain.toFixed(3));
+  if (roundedLoss < minLoss) {
+    minLoss = roundedLoss;
     epochsSinceMinLoss = 0;
   } else {
     epochsSinceMinLoss++;
