@@ -103,12 +103,6 @@ limitations under the License.
           </button>
         </div>
       </div>
-      <div class="control ui-fast-updates" style="align-self: center; margin-left: 10px;">
-        <label>
-          <input type="checkbox" id="fast-updates-checkbox">
-          <span style="vertical-align: middle;">Fast updates</span>
-        </label>
-      </div>
     </div>
   </div>
 
@@ -292,12 +286,6 @@ limitations under the License.
 
     <!-- Output Column -->
     <div class="column output">
-      <div class="header-wrapper">
-        <div class="section-header">
-          <h4>Output</h4>
-          <div class="collapse-button">▼</div>
-        </div>
-      </div>
       <div class="content-wrapper">
         <div class="section-content">
           <div class="metrics">
@@ -307,28 +295,6 @@ limitations under the License.
             </div>
             <div id="practice-safety-container"></div>
             <div id="linechart"></div>
-          </div>
-          <div id="heatmap"></div>
-          <div style="float:left;margin-left:10px">
-            <div style="display:flex; align-items:center;">
-
-              <!-- Gradient color scale -->
-              <div class="label" style="width:105px; margin-right: 10px">
-                Colors shows data, neuron and weight values.
-              </div>
-              <svg width="150" height="30" id="colormap">
-                <defs>
-                  <linearGradient id="gradient" x1="0%" y1="100%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#f59322" stop-opacity="1"></stop>
-                    <stop offset="50%" stop-color="#e8eaeb" stop-opacity="1"></stop>
-                    <stop offset="100%" stop-color="#0877bd" stop-opacity="1"></stop>
-                  </linearGradient>
-                </defs>
-                <g class="core" transform="translate(3, 0)">
-                  <rect width="144" height="10" style="fill: url('#gradient');"></rect>
-                </g>
-              </svg>
-            </div>
           </div>
         </div>
       </div>

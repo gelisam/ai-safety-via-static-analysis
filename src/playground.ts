@@ -16,16 +16,10 @@ limitations under the License.
 import * as nn from "./nn";
 import { Activations } from "./activation";
 import { BIT_RANGES } from "./range";
-import {HeatMap, reduceMatrix} from "./heatmap";
 import {
   State,
-  datasets,
-  regDatasets,
-  activations,
-  // regularizations, // Removed
-  getKeyFromValue
 } from "./state";
-import {Example2D, shuffle, xyToBits, classifyParityData, bitlength, DataGenerator} from "./dataset";
+import {Example2D, shuffle, xyToBits, classifyParityData} from "./dataset";
 import {AppendingLineChart} from "./linechart";
 import * as d3 from 'd3';
 
@@ -38,184 +32,6 @@ function formatNumber(num: number): string {
         return "0.0";
     }
     return fixed;
-}
-
-export function generateNetworkCode(network: nn.Node[][], state: State): string {
-    if (!network || network.length === 0) return "";
-
-    let codeLines: string[] = [];
-    let nodeIdToVarName: {[key: string]: string} = {};
-
-    // Populate nodeIdToVarName and add input ranges
-    const inputLayer = network[0];
-    for (let j = 0; j < inputLayer.length; j++) {
-        const node = inputLayer[j];
-        nodeIdToVarName[node.id] = node.id; // e.g. bit0
-        if (node.outputRange) {
-            codeLines.push(`[${formatNumber(node.outputRange[0])}, ${formatNumber(node.outputRange[1])}] ∋ ${node.id}`);
-        }
-    }
-    if (inputLayer.length > 0) {
-        codeLines.push(""); // Add a blank line after input ranges
-    }
-
-    for (let i = 1; i < network.length; i++) { // Start from the first hidden layer
-        let layer = network[i];
-        for (let j = 0; j < layer.length; j++) {
-            const node = layer[j];
-            let varName: string;
-            if (i === network.length - 1) { // Output layer
-                varName = "out";
-            } else { // Hidden layer
-                const layerIndex = i - 1;
-                const nodeIndex = j;
-                varName = `x${layerIndex}${nodeIndex}`;
-            }
-            nodeIdToVarName[node.id] = varName;
-        }
-    }
-
-
-    for (let i=1; i<network.length; i++) {
-      if (i === network.length - 1) { // Output layer
-        codeLines.push(""); // Add an extra blank line before the output layer
-      }
-
-      let layer = network[i];
-      for (let j=0; j<layer.length; j++) {
-        const node = layer[j];
-        const targetName = nodeIdToVarName[node.id];
-        const allTermsArray: string[] = [];
-
-        // Add range string for the current node
-        if (node.outputRange) {
-          const rangeString = `[${formatNumber(node.outputRange[0])}, ${formatNumber(node.outputRange[1])}] ∋ ${targetName}`;
-          if (i === network.length - 1) { // Output layer
-            allTermsArray.push(`<span id='output-node-range-and-var-text'>${rangeString}</span>`);
-          } else {
-            allTermsArray.push(rangeString);
-          }
-        } else {
-          allTermsArray.push(targetName);
-        }
-        allTermsArray.push(`=`);
-
-        const termsArray: string[] = [];
-        let firstTerm = true;
-        for (let k=0; k<node.inputLinks.length; k++) {
-          const link = node.inputLinks[k];
-
-          // Omitting terms of the form "0.0 * x"
-          if (Math.abs(link.weight) < 0.001) continue;
-
-          const sourceName = nodeIdToVarName[link.source.id];
-          const weight = link.weight;
-
-          // Omitting 1.0 coefficients
-          if (Math.abs(weight - 1.0) < 0.001) {
-            if (weight > 0) {
-              if (firstTerm) {
-                // x10 = x00
-                termsArray.push(sourceName);
-                firstTerm = false;
-              } else {
-                // x10 = ... + x00
-                termsArray.push("+");
-                termsArray.push(sourceName);
-              }
-            } else {
-              if (firstTerm) {
-                // x10 = -x00
-                termsArray.push(`-${sourceName}`);
-                firstTerm = false;
-              } else {
-                // x10 = ... - x00
-                termsArray.push("-");
-                termsArray.push(sourceName);
-              }
-            }
-          } else {
-            if (weight > 0) {
-              if (firstTerm) {
-                // x10 = 0.5 * x00
-                termsArray.push(formatNumber(weight));
-                termsArray.push("*");
-                termsArray.push(sourceName);
-                firstTerm = false;
-              } else {
-                // x10 = ... + 0.5 * x00
-                termsArray.push("+");
-                termsArray.push(formatNumber(weight));
-                termsArray.push("*");
-                termsArray.push(sourceName);
-              }
-            } else {
-              if (firstTerm) {
-                // x10 = -0.5 * x00
-                termsArray.push(formatNumber(weight));
-                termsArray.push("*");
-                termsArray.push(sourceName);
-                firstTerm = false;
-              } else {
-                // x10 = ... - 0.5 * x00
-                termsArray.push("-");
-                termsArray.push(formatNumber(Math.abs(weight)));
-                termsArray.push("*");
-                termsArray.push(sourceName);
-              }
-            }
-          }
-        }
-
-        // Bias term
-        if (Math.abs(node.bias) >= 0.001) {
-          if (node.bias > 0.0) {
-            if (firstTerm) {
-              // x10 = 0.5
-              termsArray.push(formatNumber(node.bias));
-              firstTerm = false;
-            } else {
-              // x10 = ... + 0.5
-              termsArray.push("+");
-              termsArray.push(formatNumber(node.bias));
-            }
-          } else {
-            if (firstTerm) {
-              // x10 = -0.5
-              termsArray.push(formatNumber(node.bias));
-              firstTerm = false;
-            } else {
-              // x10 = ... - 0.5
-              termsArray.push("-");
-              termsArray.push(formatNumber(Math.abs(node.bias)));
-            }
-          }
-        }
-
-        let joinedTerms = termsArray.join(" ");
-        // If no terms were added (all weights zero, bias zero), represent as relu(0.0)
-        if (firstTerm) {
-          joinedTerms = "0.0";
-        }
-
-        allTermsArray.push(`${node.activation.name}(${joinedTerms})`);
-        codeLines.push(allTermsArray.join(" "));
-      }
-      if (i < network.length - 1) {
-        codeLines.push(""); // Blank line after each layer
-      }
-    }
-    return codeLines.join("\n");
-}
-
-let mainWidth;
-
-const RECT_SIZE = 30;
-const BIAS_SIZE = 5;
-const DENSITY = 100;
-
-enum HoverType {
-  BIAS, WEIGHT
 }
 
 interface InputFeature {
@@ -233,15 +49,6 @@ let INPUTS: {[name: string]: InputFeature} = {
   "bit1": {f: (x, y) => xyToBits(x, y)[6] ? 1 : 0, label: "bit1"},
   "bit0": {f: (x, y) => xyToBits(x, y)[7] ? 1 : 0, label: "bit0"},
 };
-
-let HIDABLE_CONTROLS = [
-  ["Show test data", "showTestData"],
-  ["Play button", "playButton"],
-  ["Step button", "stepButton"],
-  ["Reset button", "resetButton"],
-  ["Learning rate", "learningRate"],
-  ["# of hidden layers", "numHiddenLayers"],
-];
 
 class Player {
   private timerIndex = 0;
@@ -295,6 +102,7 @@ class Player {
 }
 
 let state = State.deserializeState();
+state.fastUpdates = true; // Hardcode fast updates
 
 // Filter out inputs that are hidden.
 state.getHiddenProps().forEach(prop => {
@@ -303,21 +111,6 @@ state.getHiddenProps().forEach(prop => {
   }
 });
 
-let boundary: {[id: string]: number[][]} = {};
-let selectedNodeId: string = null;
-// Plot the heatmap.
-let xDomain: [number, number] = [-5.3, 5.3];
-let heatMap =
-    new HeatMap(600, DENSITY, xDomain, xDomain, d3.select("#heatmap"),
-        {showAxes: false});
-let linkWidthScale = d3.scale.linear()
-  .domain([0, 5])
-  .range([1, 10])
-  .clamp(true);
-let colorScale = d3.scale.linear<string, number>()
-                     .domain([-1, 0, 1])
-                     .range(["#f59322", "#e8eaeb", "#0877bd"])
-                     .clamp(true);
 let iter = 0;
 let trainData: Example2D[] = [];
 let testData: Example2D[] = [];
@@ -330,28 +123,8 @@ const stoppingConditionEpochs = 50;
 let player = new Player();
 let lineChart = new AppendingLineChart(d3.select("#linechart"),
     ["#777"]); // Only one color for training loss
-let recentTrainLosses: number[] = [];
+
 const LEARNING_RATES = [10, 3, 1, 0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.0001, 0.00001];
-
-function enableFeaturesForDataset() {
-  // Set network shape for parity: two layers of 8 neurons each
-  state.networkShape = [8, 8];
-  state.numHiddenLayers = state.networkShape.length;
-}
-
-function updateCodeDisplay() {
-  const codeDisplayElement = document.getElementById("code-display");
-  if (codeDisplayElement) {
-    // Ensure 'network' and 'state' are the currently updated instances
-    // These are typically available in the global scope of playground.ts or passed around
-    const codeString = generateNetworkCode(network, state);
-    codeDisplayElement.innerHTML = codeString; // Use innerHTML to parse spans
-  } else {
-    // console.warn("code-display element not found");
-    // Warning: element might not be ready in very early stages or if HTML changes.
-    // For this specific project, it should generally be available once UI is built.
-  }
-}
 
 function updateLearningRateDisplay(newRate: number, highlight = true) {
     const learningRateValues = document.getElementById('learning-rate-values');
@@ -380,21 +153,16 @@ function updateLearningRateDisplay(newRate: number, highlight = true) {
 }
 
 function makeGUI() {
-  // Add collapsible section functionality
-  initCollapsibleSections();
-
   d3.select("#reset-button").on("click", () => {
-    // Main reset button now generates a new random seed
     state.seed = Math.floor(Math.random() * 900000 + 100000).toString();
     state.serialize();
     userHasInteracted();
-    generateData(); // Uses the new random seed
-    reset(); // Reset network (will use the new random seed, no hardcoded weights)
+    generateData();
+    reset();
     d3.select("#play-pause-button");
   });
 
   d3.select("#play-pause-button").on("click", function () {
-    // Change the button's content.
     userHasInteracted();
     player.playOrPause();
   });
@@ -412,36 +180,6 @@ function makeGUI() {
     oneStep();
   });
 
-  // Add Enter key listener for the user seed input
-  const userSeedInput = document.getElementById("userSeed") as HTMLInputElement;
-  userSeedInput.addEventListener("keypress", function(event) {
-    if (event.key === "Enter") {
-      event.preventDefault(); // Prevent default form submission if any
-      document.getElementById("applyUserSeed").click(); // Trigger click on apply button
-    }
-  });
-
-  d3.select("#add-layers").on("click", () => {
-    if (state.numHiddenLayers >= 6) {
-      return;
-    }
-    state.networkShape[state.numHiddenLayers] = 2;
-    state.numHiddenLayers++;
-    parametersChanged = true;
-    reset();
-  });
-
-  d3.select("#remove-layers").on("click", () => {
-    if (state.numHiddenLayers <= 0) {
-      return;
-    }
-    state.numHiddenLayers--;
-    state.networkShape.splice(state.numHiddenLayers);
-    parametersChanged = true;
-    reset();
-  });
-
-
   let safetySlider = d3.select("#safetySlider").on("input", function() {
     state.safetyImportance = +this.value / 100;
     d3.select("#safetyValue").text(this.value + "%");
@@ -450,18 +188,6 @@ function makeGUI() {
   });
   safetySlider.property("value", state.safetyImportance * 100);
   d3.select("#safetyValue").text(formatNumber(state.safetyImportance * 100) + "%");
-
-  // Add scale to the gradient color map.
-  let x = d3.scale.linear().domain([-1, 1]).range([0, 144]);
-  let xAxis = d3.svg.axis()
-    .scale(x)
-    .orient("bottom")
-    .tickValues([-1, 0, 1])
-    .tickFormat(d3.format("d"));
-  d3.select("#colormap g.core").append("g")
-    .attr("class", "x axis")
-    .attr("transform", "translate(0,10)")
-    .call(xAxis);
 
   // Seed controls
   d3.select("#applyUserSeed").on("click", () => {
@@ -477,473 +203,22 @@ function makeGUI() {
       reset(); // Reset the network (it will use the now-seeded RNG)
     }
   });
-
+  // Add Enter key listener for the user seed input
+  const userSeedInput = document.getElementById("userSeed") as HTMLInputElement;
+  userSeedInput.addEventListener("keypress", function(event) {
+    if (event.key === "Enter") {
+      event.preventDefault(); // Prevent default form submission if any
+      document.getElementById("applyUserSeed").click(); // Trigger click on apply button
+    }
+  });
   // Initial display of the seed
   updateSeedDisplay();
-
-  // Fast updates checkbox
-  const fastUpdatesCheckbox = d3.select("#fast-updates-checkbox");
-  fastUpdatesCheckbox.property("checked", state.fastUpdates);
-  fastUpdatesCheckbox.on("change", function() {
-    state.fastUpdates = this.checked;
-    state.serialize();
-    userHasInteracted();
-  });
 }
 
 function updateSeedDisplay() {
   const userSeedInput = document.getElementById("userSeed") as HTMLInputElement;
   if (userSeedInput) {
     userSeedInput.value = state.seed;
-  }
-}
-
-function updateBiasesUI(network: nn.Node[][]) {
-  nn.forEachNode(network, true, node => {
-    d3.select(`rect#bias-${node.id}`).style("fill", colorScale(node.bias));
-  });
-}
-
-function updateWeightsUI(network: nn.Node[][], container) {
-  for (let layerIdx = 1; layerIdx < network.length; layerIdx++) {
-    let currentLayer = network[layerIdx];
-    // Update all the nodes in this layer.
-    for (let i = 0; i < currentLayer.length; i++) {
-      let node = currentLayer[i];
-      for (let j = 0; j < node.inputLinks.length; j++) {
-        let link = node.inputLinks[j];
-        container.select(`#link${link.source.id}-${link.dest.id}`)
-            .style({
-              "stroke-dashoffset": -iter / 3,
-              "stroke-width": linkWidthScale(Math.abs(link.weight)),
-              "stroke": colorScale(link.weight)
-            })
-            .datum(link);
-      }
-    }
-  }
-}
-
-let isHovercardBeingEdited = false;
-
-function drawNode(cx: number, cy: number, nodeId: string, isInput: boolean,
-    container, node?: nn.Node) {
-  let x = cx - RECT_SIZE / 2;
-  let y = cy - RECT_SIZE / 2;
-
-  let nodeGroup = container.append("g")
-    .attr({
-      "class": "node",
-      "id": `node${nodeId}`,
-      "transform": `translate(${x},${y})`
-    });
-
-  // Draw the main rectangle.
-  nodeGroup.append("rect")
-    .attr({
-      x: 0,
-      y: 0,
-      width: RECT_SIZE,
-      height: RECT_SIZE,
-    });
-  if (isInput) {
-    let label = INPUTS[nodeId].label != null ?
-        INPUTS[nodeId].label : nodeId;
-    // Draw the input label.
-    let text = nodeGroup.append("text").attr({
-      class: "main-label",
-      x: -10,
-      y: RECT_SIZE / 2, "text-anchor": "end"
-    });
-    if (/[_^]/.test(label)) {
-      let myRe = /(.*?)([_^])(.)/g;
-      let myArray;
-      let lastIndex;
-      while ((myArray = myRe.exec(label)) != null) {
-        lastIndex = myRe.lastIndex;
-        let prefix = myArray[1];
-        let sep = myArray[2];
-        let suffix = myArray[3];
-        if (prefix) {
-          text.append("tspan").text(prefix);
-        }
-        text.append("tspan")
-        .attr("baseline-shift", sep === "_" ? "sub" : "super")
-        .style("font-size", "9px")
-        .text(suffix);
-      }
-      if (label.substring(lastIndex)) {
-        text.append("tspan").text(label.substring(lastIndex));
-      }
-    } else {
-      text.append("tspan").text(label);
-    }
-    nodeGroup.classed("active", true);
-  }
-  if (!isInput) {
-    // Draw the node's bias.
-    nodeGroup.append("rect")
-      .attr({
-        id: `bias-${nodeId}`,
-        x: -BIAS_SIZE - 2,
-        y: RECT_SIZE - BIAS_SIZE + 3,
-        width: BIAS_SIZE,
-        height: BIAS_SIZE,
-      }).on("mouseenter", function() {
-        if (!isHovercardBeingEdited) {
-          updateHoverCard(HoverType.BIAS, node, d3.mouse(container.node()));
-        }
-      }).on("mouseleave", function() {
-        if (!isHovercardBeingEdited) {
-          updateHoverCard(null);
-        }
-      });
-  }
-
-  // Draw the node's canvas.
-  let div = d3.select("#network").insert("div", ":first-child")
-    .attr({
-      "id": `canvas-${nodeId}`,
-      "class": "canvas"
-    })
-    .style({
-      position: "absolute",
-      left: `${x + 3}px`,
-      top: `${y + 3}px`
-    })
-    .on("mouseenter", function() {
-      selectedNodeId = nodeId;
-      div.classed("hovered", true);
-      nodeGroup.classed("hovered", true);
-      updateDecisionBoundary(network, false);
-      heatMap.updateBackground(boundary[nodeId]);
-    })
-    .on("mouseleave", function() {
-      selectedNodeId = null;
-      div.classed("hovered", false);
-      nodeGroup.classed("hovered", false);
-      updateDecisionBoundary(network, false);
-      heatMap.updateBackground(boundary[nn.getOutputNode(network).id]);
-    });
-  if (isInput) {
-    div.classed("active", true);
-  }
-  let nodeHeatMap = new HeatMap(RECT_SIZE, DENSITY / 10, xDomain,
-      xDomain, div, {noSvg: true});
-  div.datum({heatmap: nodeHeatMap, id: nodeId});
-
-}
-
-// Draw network
-function drawNetwork(network: nn.Node[][]): void {
-  let svg = d3.select("#svg");
-  // Remove all svg elements.
-  svg.select("g.core").remove();
-  // Remove all div elements.
-  d3.select("#network").selectAll("div.canvas").remove();
-  d3.select("#network").selectAll("div.plus-minus-neurons").remove();
-
-  // Use a fixed width instead of calculating from DOM positions
-  // This prevents issues when sections are collapsed
-  let padding = 3;
-  let width = 600; // features.column's width in the CSS
-  svg.attr("width", width);
-
-  // Map of all node coordinates.
-  let node2coord: {[id: string]: {cx: number, cy: number}} = {};
-  let container = svg.append("g")
-    .classed("core", true)
-    .attr("transform", `translate(${padding},${padding})`);
-  // Draw the network layer by layer.
-  let numLayers = network.length;
-  let featureWidth = 118;
-  let layerScale = d3.scale.ordinal<number, number>()
-      .domain(d3.range(1, numLayers - 1))
-      .rangePoints([featureWidth, width - RECT_SIZE], 0.7);
-  let nodeIndexScale = (nodeIndex: number) => nodeIndex * (RECT_SIZE + 25);
-
-
-  let calloutThumb = d3.select(".callout.thumbnail").style("display", "none");
-  let calloutWeights = d3.select(".callout.weights").style("display", "none");
-  let idWithCallout = null;
-  let targetIdWithCallout = null;
-
-  // Draw the input layer separately.
-  let cx = RECT_SIZE / 2 + 50;
-  let nodeIds = Object.keys(INPUTS);
-  let maxY = nodeIndexScale(nodeIds.length);
-  nodeIds.forEach((nodeId, i) => {
-    let cy = nodeIndexScale(i) + RECT_SIZE / 2;
-    node2coord[nodeId] = {cx, cy};
-    drawNode(cx, cy, nodeId, true, container);
-  });
-
-  // Draw the intermediate layers.
-  for (let layerIdx = 1; layerIdx < numLayers - 1; layerIdx++) {
-    let numNodes = network[layerIdx].length;
-    let cx = layerScale(layerIdx) + RECT_SIZE / 2;
-    maxY = Math.max(maxY, nodeIndexScale(numNodes));
-    addPlusMinusControl(layerScale(layerIdx), layerIdx);
-    for (let i = 0; i < numNodes; i++) {
-      let node = network[layerIdx][i];
-      let cy = nodeIndexScale(i) + RECT_SIZE / 2;
-      node2coord[node.id] = {cx, cy};
-      drawNode(cx, cy, node.id, false, container, node);
-
-      // Show callout to thumbnails.
-      let numNodes = network[layerIdx].length;
-      let nextNumNodes = network[layerIdx + 1].length;
-      if (idWithCallout == null &&
-          i === numNodes - 1 &&
-          nextNumNodes <= numNodes) {
-        calloutThumb.style({
-          display: null,
-          top: `${20 + 3 + cy}px`,
-          left: `${cx}px`
-        });
-        idWithCallout = node.id;
-      }
-
-      // Draw links.
-      for (let j = 0; j < node.inputLinks.length; j++) {
-        let link = node.inputLinks[j];
-        let path: SVGPathElement = drawLink(link, node2coord, network,
-            container, j === 0, j, node.inputLinks.length).node() as any;
-        // Show callout to weights.
-        let prevLayer = network[layerIdx - 1];
-        let lastNodePrevLayer = prevLayer[prevLayer.length - 1];
-        if (targetIdWithCallout == null &&
-            i === numNodes - 1 &&
-            link.source.id === lastNodePrevLayer.id &&
-            (link.source.id !== idWithCallout || numLayers <= 5) &&
-            link.dest.id !== idWithCallout &&
-            prevLayer.length >= numNodes) {
-          let midPoint = path.getPointAtLength(path.getTotalLength() * 0.7);
-          calloutWeights.style({
-            display: null,
-            top: `${midPoint.y + 5}px`,
-            left: `${midPoint.x + 3}px`
-          });
-          targetIdWithCallout = link.dest.id;
-        }
-      }
-    }
-  }
-
-  // Draw the output node separately.
-  cx = width + RECT_SIZE / 2;
-  let node = network[numLayers - 1][0];
-  let cy = nodeIndexScale(0) + RECT_SIZE / 2 + 30;
-  node2coord[node.id] = {cx, cy};
-  // Draw links.
-  for (let i = 0; i < node.inputLinks.length; i++) {
-    let link = node.inputLinks[i];
-    drawLink(link, node2coord, network, container, i === 0, i,
-        node.inputLinks.length);
-  }
-  // Adjust the height of the svg, plus a bit for the "This is the output from
-  // one neuron" tips.
-  svg.attr("height", maxY + 100);
-
-  // Adjust the height of the features column.
-  let height = Math.max(
-    getRelativeHeight(calloutThumb),
-    getRelativeHeight(calloutWeights),
-    getRelativeHeight(d3.select("#network"))
-  );
-  d3.select(".column.features").style("height", height + "px");
-}
-
-function getRelativeHeight(selection) {
-  let node = selection.node() as HTMLAnchorElement;
-  return node.offsetHeight + node.offsetTop;
-}
-
-function addPlusMinusControl(x: number, layerIdx: number) {
-  let div = d3.select("#network").append("div")
-    .classed("plus-minus-neurons", true)
-    .style("left", `${x - 10}px`);
-
-  let i = layerIdx - 1;
-  let firstRow = div.append("div").attr("class", `ui-numNodes${layerIdx}`);
-  firstRow.append("button")
-      .attr("class", "mdl-button mdl-js-button mdl-button--icon")
-      .on("click", () => {
-        let numNeurons = state.networkShape[i];
-        if (numNeurons >= 8) {
-          return;
-        }
-        state.networkShape[i]++;
-        parametersChanged = true;
-        reset();
-      })
-    .append("i")
-      .attr("class", "material-icons")
-      .text("add");
-
-  firstRow.append("button")
-      .attr("class", "mdl-button mdl-js-button mdl-button--icon")
-      .on("click", () => {
-        let numNeurons = state.networkShape[i];
-        if (numNeurons <= 1) {
-          return;
-        }
-        state.networkShape[i]--;
-        parametersChanged = true;
-        reset();
-      })
-    .append("i")
-      .attr("class", "material-icons")
-      .text("remove");
-
-  let suffix = state.networkShape[i] > 1 ? "s" : "";
-  div.append("div").text(
-    state.networkShape[i] + " neuron" + suffix
-  );
-}
-
-function updateHoverCard(type: HoverType, nodeOrLink?: nn.Node | nn.Link,
-    coordinates?: [number, number]) {
-  let hovercard = d3.select("#hovercard");
-  if (type == null) {
-    isHovercardBeingEdited = false;
-    hovercard.style("display", "none");
-    d3.select("#svg").on("click", null);
-    return;
-  }
-  d3.select("#svg").on("click", () => {
-    isHovercardBeingEdited = true;
-    hovercard.select(".value").style("display", "none");
-    let input = hovercard.select("input");
-    input.style("display", null);
-    input.on("input", function() {
-      if (this.value != null && this.value !== "") {
-        if (type === HoverType.WEIGHT) {
-          (nodeOrLink as nn.Link).weight = +this.value;
-        } else {
-          (nodeOrLink as nn.Node).bias = +this.value;
-        }
-        nn.forwardPropRanges(network, BIT_RANGES);
-        updateUI();
-      }
-    });
-    input.on("keydown", () => {
-      let keycode = (d3.event as any).keyCode;
-      if (keycode === 13 || keycode === 27) {
-        updateHoverCard(null, nodeOrLink, coordinates);
-      }
-    });
-    let inputElement = input.node() as HTMLInputElement;
-    inputElement.focus();
-    inputElement.select();
-  });
-  let value = (type === HoverType.WEIGHT) ?
-    (nodeOrLink as nn.Link).weight :
-    (nodeOrLink as nn.Node).bias;
-  let name = (type === HoverType.WEIGHT) ? "Weight" : "Bias";
-  hovercard.style({
-    "left": `${coordinates[0] + 20}px`,
-    "top": `${coordinates[1]}px`,
-    "display": "block"
-  });
-  hovercard.select(".type").text(name);
-  hovercard.select(".value")
-    .style("display", null)
-    .text(value.toPrecision(2));
-  hovercard.select("input")
-    .property("value", value.toPrecision(2))
-    .style("display", "none");
-}
-
-function drawLink(
-    input: nn.Link, node2coord: {[id: string]: {cx: number, cy: number}},
-    network: nn.Node[][], container,
-    isFirst: boolean, index: number, length: number) {
-  let line = container.insert("path", ":first-child");
-  let source = node2coord[input.source.id];
-  let dest = node2coord[input.dest.id];
-  let datum = {
-    source: {
-      y: source.cx + RECT_SIZE / 2 + 2,
-      x: source.cy
-    },
-    target: {
-      y: dest.cx - RECT_SIZE / 2,
-      x: dest.cy + ((index - (length - 1) / 2) / length) * 12
-    }
-  };
-  let diagonal = d3.svg.diagonal().projection(d => [d.y, d.x]);
-  line.attr({
-    "marker-start": "url(#markerArrow)",
-    class: "link",
-    id: "link" + input.source.id + "-" + input.dest.id,
-    d: diagonal(datum, 0)
-  });
-
-  // Add an invisible thick link that will be used for
-  // showing the weight value on hover.
-  container.append("path")
-    .attr("d", diagonal(datum, 0))
-    .attr("class", "link-hover")
-    .on("mouseenter", function() {
-      if (!isHovercardBeingEdited) {
-        updateHoverCard(HoverType.WEIGHT, input, d3.mouse(this));
-      }
-    }).on("mouseleave", function() {
-      if (!isHovercardBeingEdited) {
-        updateHoverCard(null);
-      }
-    });
-  return line;
-}
-
-/**
- * Given a neural network, it asks the network for the output (prediction)
- * of every node in the network using inputs sampled on a square grid.
- * It returns a map where each key is the node ID and the value is a square
- * matrix of the outputs of the network for each input in the grid respectively.
- */
-function updateDecisionBoundary(network: nn.Node[][], firstTime: boolean) {
-  if (firstTime) {
-    boundary = {};
-    nn.forEachNode(network, true, node => {
-      boundary[node.id] = new Array(DENSITY);
-    });
-    // Go through all predefined inputs.
-    for (let nodeId in INPUTS) {
-      boundary[nodeId] = new Array(DENSITY);
-    }
-  }
-  let xScale = d3.scale.linear().domain([0, DENSITY - 1]).range(xDomain);
-  let yScale = d3.scale.linear().domain([DENSITY - 1, 0]).range(xDomain);
-
-  let i = 0, j = 0;
-  for (i = 0; i < DENSITY; i++) {
-    if (firstTime) {
-      nn.forEachNode(network, true, node => {
-        boundary[node.id][i] = new Array(DENSITY);
-      });
-      // Go through all predefined inputs.
-      for (let nodeId in INPUTS) {
-        boundary[nodeId][i] = new Array(DENSITY);
-      }
-    }
-    for (j = 0; j < DENSITY; j++) {
-      // 1 for points inside the circle, and 0 for points outside the circle.
-      let x = xScale(i);
-      let y = yScale(j);
-      let input = constructInput(x, y);
-      nn.forwardProp(network, input);
-      nn.forEachNode(network, true, node => {
-        boundary[node.id][i][j] = node.output;
-      });
-      if (firstTime) {
-        // Go through all predefined inputs.
-        for (let nodeId in INPUTS) {
-          boundary[nodeId][i][j] = INPUTS[nodeId].f(x, y);
-        }
-      }
-    }
   }
 }
 
@@ -980,120 +255,6 @@ function updateUI(firstStep = false) {
   // Conditionally skip the rest of the UI updates for performance.
   if (state.fastUpdates && !firstStep) {
     return;
-  }
-
-  // Update the links visually.
-  updateWeightsUI(network, d3.select("g.core"));
-  // Update the bias values visually.
-  updateBiasesUI(network);
-  // Get the decision boundary of the network.
-  updateDecisionBoundary(network, firstStep);
-  let selectedId = selectedNodeId != null ?
-      selectedNodeId : nn.getOutputNode(network).id;
-  heatMap.updateBackground(boundary[selectedId]);
-
-  // Create network wrapper with predict function for highlighting incorrect predictions
-  let networkWrapper = {
-    predict: (point: Example2D) => {
-      let input = constructInput(point.x, point.y);
-      let outputNode = nn.forwardProp(network, input);
-      return outputNode.output >= 0 ? 1 : -1; // Convert continuous output to classification
-    }
-  };
-
-  // Update all decision boundaries.
-  d3.select("#network").selectAll("div.canvas")
-      .each(function(data: {heatmap: HeatMap, id: string}) {
-    data.heatmap.updateBackground(reduceMatrix(boundary[data.id], 10));
-  });
-
-  // Update heatmap points with incorrect prediction highlighting
-  heatMap.updatePoints(trainData, networkWrapper);
-  heatMap.updateTestPoints(testData, networkWrapper);
-
-  // Draw the top row highlight
-  let allVisiblePoints = trainData.slice();
-  allVisiblePoints = allVisiblePoints.concat(testData);
-  // The networkWrapper created earlier in updateUI has the .predict method
-  heatMap.drawTopRowHighlight(allVisiblePoints, networkWrapper);
-
-  updateCodeDisplay(); // Update code display whenever UI refreshes
-
-  // Handle "unsafe in practice" box
-  const practiceSafetyContainer = d3.select("#practice-safety-container");
-  practiceSafetyContainer.html(""); // Clear previous content
-
-  let isUnsafeInPractice = false;
-  let dataToCheck: Example2D[] = trainData.slice();
-  dataToCheck = dataToCheck.concat(testData);
-
-  for (const point of dataToCheck) {
-    const input = constructInput(point.x, point.y);
-    const outputNode = nn.forwardProp(network, input);
-    const prediction = outputNode.output;
-    const predictedLabel = prediction >= 0 ? 1 : -1; // Discretize output
-    if (predictedLabel !== point.label) {
-      // Check for critical misclassification (emergency stop ignored)
-      // input[0] to input[3] correspond to bit7 to bit4
-      const isEmergencyStopPattern = input.slice(0, 4).every(bit => bit === 1);
-      if (isEmergencyStopPattern && predictedLabel === 1) { // Predicts incinerate (1) for emergency stop
-        isUnsafeInPractice = true;
-        break;
-      }
-    }
-  }
-
-  const practiceSafetyBox = practiceSafetyContainer.append("div")
-    .attr("id", "practice-safety-box")
-    .attr("class", isUnsafeInPractice ? "unsafe" : "safe");
-
-  practiceSafetyBox.append("span")
-    .attr("id", "practice-safety-text")
-    .attr("class", isUnsafeInPractice ? "unsafe" : "safe")
-    .text(isUnsafeInPractice ? "unsafe in practice" : "safe in practice");
-
-
-  // Handle "unsafe in theory" highlighting
-  let outputNode = nn.getOutputNode(network);
-  // Target the new span that includes the variable name 'out'
-  let outputRangeAndVarSpan = document.getElementById("output-node-range-and-var-text");
-  let codeDisplayElement = document.getElementById("code-display");
-
-  // Remove previous theory-safety-box if it exists
-  const existingTheorySafetyBox = document.getElementById("theory-safety-box");
-  if (existingTheorySafetyBox) {
-    existingTheorySafetyBox.remove();
-  }
-
-  if (outputNode && outputNode.outputRange && outputRangeAndVarSpan && codeDisplayElement) {
-    const isUnsafeInTheory = outputNode.outputRange[1] >= 0.0;
-    const codeDisplayRect = codeDisplayElement.getBoundingClientRect();
-    // Get bounding rect of the new span "output-node-range-and-var-text"
-    const targetRect = outputRangeAndVarSpan.getBoundingClientRect();
-
-    const theorySafetyBox = document.createElement("div");
-    theorySafetyBox.id = "theory-safety-box";
-    theorySafetyBox.className = isUnsafeInTheory ? "unsafe" : "safe";
-
-    theorySafetyBox.style.top = (targetRect.top - codeDisplayRect.top + codeDisplayElement.scrollTop) + "px";
-    theorySafetyBox.style.left = (targetRect.left - codeDisplayRect.left + codeDisplayElement.scrollLeft - 2) + "px";
-    theorySafetyBox.style.width = (targetRect.width + 6) + "px";
-    theorySafetyBox.style.height = (targetRect.height + 3) + "px";
-
-    const theorySafetyText = document.createElement("span");
-    theorySafetyText.id = "theory-safety-text";
-    theorySafetyText.className = isUnsafeInTheory ? "unsafe" : "safe";
-    theorySafetyText.textContent = (isUnsafeInTheory ? "unsafe" : "safe") + " in theory";
-
-    theorySafetyBox.appendChild(theorySafetyText);
-
-    const sectionContent = codeDisplayElement.parentElement;
-    if (sectionContent) {
-        if (window.getComputedStyle(sectionContent).position !== 'relative' && window.getComputedStyle(sectionContent).position !== 'absolute' && window.getComputedStyle(sectionContent).position !== 'fixed') {
-            sectionContent.style.position = "relative";
-        }
-        sectionContent.appendChild(theorySafetyBox);
-    }
   }
 }
 
@@ -1140,24 +301,6 @@ function getMisclassifiedCount(): number {
   return misclassified;
 }
 
-function getIsSafeInPractice(): boolean {
-  let isUnsafe = false;
-  // All data is used for training.
-  for (const point of trainData) {
-    const input = constructInput(point.x, point.y);
-    const isEmergencyStop = input.slice(0, 4).every(bit => bit === 1);
-    if (isEmergencyStop) {
-      const output = nn.forwardProp(network, input).output;
-      const prediction = output >= 0 ? 1 : -1;
-      if (prediction === 1) {
-        isUnsafe = true;
-        break;
-      }
-    }
-  }
-  return !isUnsafe;
-}
-
 function getIsSafeInTheory(): boolean {
   const outputNode = nn.getOutputNode(network);
   return outputNode.outputRange[1] < 0.0;
@@ -1174,7 +317,6 @@ function getOutputRange(): [number, number] {
 function reportTrainingComplete() {
   const misclassifiedCount = getMisclassifiedCount();
   const outputRange = getOutputRange();
-  const safeInPractice = getIsSafeInPractice();
   const safeInTheory = getIsSafeInTheory();
 
   const reportMessage = [
@@ -1182,7 +324,6 @@ function reportTrainingComplete() {
     "",
     `i. The number of misclassified inputs: ${misclassifiedCount}`,
     `ii. The calculated range of the output: [${formatNumber(outputRange[0])}, ${formatNumber(outputRange[1])}]`,
-    `iii. Whether the model is safe in practice: ${safeInPractice}`,
     `iv. Whether the model is safe in theory: ${safeInTheory}`
   ].join("\n");
 
@@ -1236,21 +377,6 @@ function oneStep(): void {
   updateUI();
 }
 
-export function getOutputWeights(network: nn.Node[][]): number[] {
-  let weights: number[] = [];
-  for (let layerIdx = 0; layerIdx < network.length - 1; layerIdx++) {
-    let currentLayer = network[layerIdx];
-    for (let i = 0; i < currentLayer.length; i++) {
-      let node = currentLayer[i];
-      for (let j = 0; j < node.outputLinks.length; j++) {
-        let link = node.outputLinks[j];
-        weights.push(link.weight);
-      }
-    }
-  }
-  return weights;
-}
-
 function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWeightsOption is now optional
   lineChart.reset();
   state.serialize();
@@ -1266,8 +392,6 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
   // Set learning rate to 0.3 and update UI
   state.learningRate = 0.3;
   updateLearningRateDisplay(state.learningRate, false);
-  recentTrainLosses = []; // Also clear recent losses on reset
-
 
   // Determine if weights should be hardcoded
   // Priority:
@@ -1276,10 +400,6 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
   // 3. Default to false if neither of the above
   const shouldUseHardcodedWeights = hardcodeWeightsOption !== undefined ? hardcodeWeightsOption :
                                    (state.seed === "0");
-
-  let suffix = state.numHiddenLayers !== 1 ? "s" : "";
-  d3.select("#layers-label").text("Hidden layer" + suffix);
-  d3.select("#num-layers").text(state.numHiddenLayers);
 
   // Make a simple network.
   iter = 0;
@@ -1360,7 +480,6 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
   updateLearningRate(lossTrain);
   // Update node ranges after network initialization or weight hardcoding
   nn.forwardPropRanges(network, BIT_RANGES);
-  drawNetwork(network);
   updateUI(true);
   updateSeedDisplay(); // Ensure seed display is current
 }
@@ -1389,8 +508,6 @@ function generateDataPointsOnly() {
   let data = generator(numSamples, 0);
   trainData = data;
   testData = data;
-  heatMap.updatePoints(trainData);
-  heatMap.updateTestPoints(testData);
 }
 
 let firstInteraction = true;
@@ -1416,53 +533,3 @@ makeGUI();
 // generateData() will use this seed.
 generateData();
 reset(true, true); // true for onStartup, true for hardcodeWeights (because seed is "0")
-
-function initCollapsibleSections() {
-  // Initialize collapse buttons for each section
-  const sections = [
-    { selector: '.instructions.column', stateKey: 'instructionsCollapsed' },
-    { selector: '.ai-safety.column', stateKey: 'aiSafetyCollapsed' },
-    { selector: '.features.column', stateKey: 'featuresCollapsed' },
-    { selector: '.output.column', stateKey: 'outputCollapsed' },
-    { selector: '.code.column', stateKey: 'codeCollapsed' }
-  ];
-
-  sections.forEach(section => {
-    const column = d3.select(section.selector);
-    const collapseButton = column.select('.collapse-button');
-    const headerWrapper = column.select('.header-wrapper');
-
-    // Add click handler to the header
-    headerWrapper.on('click', () => {
-      toggleSection(section.selector, section.stateKey);
-    });
-
-    // Apply initial collapsed state
-    if (state[section.stateKey]) {
-      column.classed('collapsed', true);
-      collapseButton.style('transform', 'rotate(0deg)');
-    } else {
-      column.classed('collapsed', false);
-      collapseButton.style('transform', 'rotate(90deg)');
-    }
-  });
-}
-
-function toggleSection(selector: string, stateKey: string) {
-  const column = d3.select(selector);
-  const collapseButton = column.select('.collapse-button');
-  const isCollapsed = column.classed('collapsed');
-
-  // Update state
-  state[stateKey] = !isCollapsed;
-  state.serialize();
-
-  // Toggle collapsed class
-  column.classed('collapsed', !isCollapsed);
-
-  if (!isCollapsed) {
-    collapseButton.style('transform', 'rotate(0deg)');
-  } else {
-    collapseButton.style('transform', 'rotate(90deg)');
-  }
-}
