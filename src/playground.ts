@@ -34,10 +34,6 @@ function formatNumber(num: number): string {
     return fixed;
 }
 
-let mainWidth;
-
-const DENSITY = 100;
-
 interface InputFeature {
   f: (x: number, y: number) => number;
   label?: string;
@@ -106,7 +102,7 @@ class Player {
 }
 
 let state = State.deserializeState();
-state.fastUpdates = true;
+state.fastUpdates = true; // Hardcode fast updates
 
 // Filter out inputs that are hidden.
 state.getHiddenProps().forEach(prop => {
@@ -128,19 +124,45 @@ let player = new Player();
 let lineChart = new AppendingLineChart(d3.select("#linechart"),
     ["#777"]); // Only one color for training loss
 
+const LEARNING_RATES = [10, 3, 1, 0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.0001, 0.00001];
+
+function updateLearningRateDisplay(newRate: number, highlight = true) {
+    const learningRateValues = document.getElementById('learning-rate-values');
+    if (!learningRateValues) return;
+
+    const learningRates = Array.from(learningRateValues.children).map(d => parseFloat(d.innerHTML));
+    const newIndex = learningRates.indexOf(newRate);
+
+    if (newIndex !== -1) {
+        const currentTransform = learningRateValues.style.transform;
+        const newTransform = `translateY(-${newIndex * 20}px)`;
+
+        if (currentTransform === newTransform) {
+            return;
+        }
+
+        learningRateValues.style.transform = newTransform;
+
+        if (highlight) {
+            learningRateValues.classList.add('highlight');
+            setTimeout(() => {
+                learningRateValues.classList.remove('highlight');
+            }, 1200);
+        }
+    }
+}
+
 function makeGUI() {
   d3.select("#reset-button").on("click", () => {
-    // Main reset button now generates a new random seed
     state.seed = Math.floor(Math.random() * 900000 + 100000).toString();
     state.serialize();
     userHasInteracted();
-    generateData(); // Uses the new random seed
-    reset(); // Reset network (will use the new random seed, no hardcoded weights)
+    generateData();
+    reset();
     d3.select("#play-pause-button");
   });
 
   d3.select("#play-pause-button").on("click", function () {
-    // Change the button's content.
     userHasInteracted();
     player.playOrPause();
   });
@@ -157,6 +179,47 @@ function makeGUI() {
     }
     oneStep();
   });
+
+  let safetySlider = d3.select("#safetySlider").on("input", function() {
+    state.safetyImportance = +this.value / 100;
+    d3.select("#safetyValue").text(this.value + "%");
+    state.serialize();
+    userHasInteracted();
+  });
+  safetySlider.property("value", state.safetyImportance * 100);
+  d3.select("#safetyValue").text(formatNumber(state.safetyImportance * 100) + "%");
+
+  // Seed controls
+  d3.select("#applyUserSeed").on("click", () => {
+    const userSeedInput = document.getElementById("userSeed") as HTMLInputElement;
+    const newSeed = userSeedInput.value;
+    if (newSeed && newSeed.trim() !== "") {
+      state.seed = newSeed.trim();
+      state.serialize(); // Save the new seed
+      userHasInteracted();
+      Math.seedrandom(state.seed); // Seed the RNG with the user's input
+      updateSeedDisplay(); // Show the user's seed
+      generateDataPointsOnly(); // Generate new data points using this seed
+      reset(); // Reset the network (it will use the now-seeded RNG)
+    }
+  });
+  // Add Enter key listener for the user seed input
+  const userSeedInput = document.getElementById("userSeed") as HTMLInputElement;
+  userSeedInput.addEventListener("keypress", function(event) {
+    if (event.key === "Enter") {
+      event.preventDefault(); // Prevent default form submission if any
+      document.getElementById("applyUserSeed").click(); // Trigger click on apply button
+    }
+  });
+  // Initial display of the seed
+  updateSeedDisplay();
+}
+
+function updateSeedDisplay() {
+  const userSeedInput = document.getElementById("userSeed") as HTMLInputElement;
+  if (userSeedInput) {
+    userSeedInput.value = state.seed;
+  }
 }
 
 function getLoss(network: nn.Node[][], dataPoints: Example2D[]): number {
@@ -189,8 +252,9 @@ function updateUI(firstStep = false) {
   d3.select("#iter-number").text(addCommas(zeroPad(iter)));
   lineChart.addDataPoint([lossTrain]);
 
+  // Conditionally skip the rest of the UI updates for performance.
   if (state.fastUpdates && !firstStep) {
-      return;
+    return;
   }
 }
 
@@ -208,6 +272,19 @@ function constructInput(x: number, y: number): number[] {
     input.push(INPUTS[inputName].f(x, y));
   }
   return input;
+}
+
+function updateLearningRate(loss: number) {
+  if (loss <= 0.10) {
+    state.learningRate = 0.01;
+  } else if (loss <= 0.25) {
+    state.learningRate = 0.03;
+  } else if (loss <= 0.40) {
+    state.learningRate = 0.1;
+  } else {
+    state.learningRate = 0.3;
+  }
+  updateLearningRateDisplay(state.learningRate);
 }
 
 function getMisclassifiedCount(): number {
@@ -277,6 +354,7 @@ function oneStep(): void {
   // Compute the loss.
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
+  updateLearningRate(lossTrain);
 
   // Check for early stopping condition.
   const roundedLoss = parseFloat(lossTrain.toFixed(3));
@@ -310,6 +388,10 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
   // Reset early stopping variables
   minLoss = Number.MAX_VALUE;
   epochsSinceMinLoss = 0;
+
+  // Set learning rate to 0.3 and update UI
+  state.learningRate = 0.3;
+  updateLearningRateDisplay(state.learningRate, false);
 
   // Determine if weights should be hardcoded
   // Priority:
@@ -395,9 +477,11 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
 
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
+  updateLearningRate(lossTrain);
   // Update node ranges after network initialization or weight hardcoding
   nn.forwardPropRanges(network, BIT_RANGES);
   updateUI(true);
+  updateSeedDisplay(); // Ensure seed display is current
 }
 
 /**
@@ -408,6 +492,7 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
 function generateData() {
   // state.seed must be set by the caller if a change is intended.
   Math.seedrandom(state.seed);
+  updateSeedDisplay(); // Update the displayed seed based on current state.seed
   generateDataPointsOnly(); // Generate points using the now-seeded RNG
 }
 
