@@ -9,7 +9,7 @@ You may obtain a copy of the License at
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+WITHOUTHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================-->
@@ -67,237 +67,14 @@ limitations under the License.
         <span class="label">Epoch</span>
         <span class="value" id="iter-number"></span>
       </div>
-      <div class="control ui-learningRate">
-        <label for="learningRate">Learning rate</label>
-        <div id="learning-rate-value-container" class="value-container">
-          <div id="learning-rate-values">
-            <div>10</div>
-            <div>3</div>
-            <div>1</div>
-            <div>0.3</div>
-            <div>0.1</div>
-            <div>0.03</div>
-            <div>0.01</div>
-            <div>0.003</div>
-            <div>0.001</div>
-            <div>0.0001</div>
-            <div>0.00001</div>
-          </div>
-        </div>
-      </div>
-      <div class="control ui-safety-importance">
-        <label for="safetySlider" class="tooltip-label">
-          Importance of theoretical safety
-        </label>
-        <div style="display: flex; align-items: center;">
-          <input type="range" id="safetySlider" min="0" max="2" step="0.1" value="1" class="ui-slider">
-          <span id="safetyValue" style="margin-left: 10px; width: 30px;">0%</span>
-        </div>
-      </div>
-      <div class="control ui-seed-input">
-        <label for="userSeed">Seed</label>
-        <div style="display: flex; align-items: center;">
-          <input type="text" id="userSeed" class="ui-input" style="width: 70px; margin-right: 5px;">
-          <button id="applyUserSeed" class="mdl-button mdl-js-button mdl-button--raised" title="Apply new seed">
-            Set
-          </button>
-        </div>
-      </div>
-      <div class="control ui-fast-updates" style="align-self: center; margin-left: 10px;">
-        <label>
-          <input type="checkbox" id="fast-updates-checkbox">
-          <span style="vertical-align: middle;">Fast updates</span>
-        </label>
-      </div>
     </div>
   </div>
 
   <!-- Main Part -->
   <div id="main-part" class="l--page">
 
-    <!-- AI SAFETY Column -->
-    <div class="column ai-safety readme">
-      <div class="header-wrapper">
-        <div class="section-header">
-          <h4>AI&nbsp;SAFETY</h4>
-          <div class="collapse-button">▼</div>
-        </div>
-      </div>
-      <div class="content-wrapper">
-        <div class="section-content">
-          <p>
-            Here is a toy AI Safety problem.
-          </p>
-          <p>
-            We are training Parity-bot to clean up our even-dominoes collection. To do
-            that, we train Parity-bot to count whether a given domino has an odd or even number of dots on them. For example, if Parity-bot receives the input <code>0010
-            1100</code>, it should return 1 to incinerate the odd-numbered domino, whereas if
-            Parity-bot receives the input <code>0010 1110</code>, it should return -1 to leave the
-            even-numbered domino alone.
-          </p>
-          <p>
-            Just in case, we install a big red EMERGENCY STOP button on Parity-bot. That
-            replaces the input pattern <code>xxxx xxxx</code> with the specially-annotated input <code>1111
-            xxxx</code>. There are thus several critical input values (<code>1111 0000</code> through <code>1111
-            1111</code>) for which it is very important that Parity-bot ignores the number of
-            dots and always returns the safe value of -1.
-          </p>
-          <p>
-            Alas, even if we train Parity-bot to follow this safety rule, neural networks
-            <a href="https://gelisam.com/local-minima">can get stuck in a local minima</a>! This means
-            there is a chance that we press the EMERGENCY STOP button, causing Parity-bot
-            to see the pattern <code>1111 0010</code>, but it just so happens that this is one of the
-            few pattern which Parity-bot miclassifies, and Parity-bot incinerates anyway.
-            This is not acceptable.
-          </p>
-          <p>
-            This page demonstrates how static analysis, which is commonly applied to programming
-            languages but seldom used with neural networks, can guarantee that this never happens.
-          </p>
-          <p>
-            Furthermore, this page also demonstrates that with a
-            <i>differentiable</i> static analysis, it is possible to train a
-            neural network to satisfy a property and to <i>prove</i> that the
-            training was enough for the property to hold <i>for all relevant
-            inputs</i>.
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <!-- INSTRUCTIONS Column -->
-    <div class="column instructions readme">
-      <div class="header-wrapper">
-        <div class="section-header">
-          <h4>INSTRUCTIONS</h4>
-          <div class="collapse-button">▼</div>
-        </div>
-      </div>
-      <div class="content-wrapper">
-        <div class="section-content">
-          <p>
-            Fold this section, click the Reset button to set random weights,
-            then click the Play button to train the network.
-          </p>
-          <ol>
-            <li>
-              The WEIGHT section shows the network architecture, the weights,
-              and the function which each neuron has learned.
-            </li>
-            <li>
-              The OUTPUT section shows the function which the network is trying
-              to learn, which is close to the parity function. There is no
-              holdout dataset, so every red circle is an input which the model
-              was trained on yet misclassifies. Some misclassifications
-              are acceptable, but in this toy AI Safety scenario, it is very
-              important that the model must correctly classify the entire top
-              row. If so, we say that the model is "safe in practice".
-            </li>
-            <li>
-              The CODE section shows the same weights, but in the form of a
-              computer program. We calculate the minimum and maximum value which
-              each neuron could possibly output for any input in the top row. If
-              the maximum for the final output is smaller than 0.0, then all the
-              inputs in the top row are guaranteed to be correctly classified,
-              so we say that the model is "safe in theory".
-            </li>
-          </ol>
-          <p>
-            "Safe in theory" is a <i>conservative approximation</i> of "safe in
-            practice", meaning that while you will encounter some weights which
-            are "unsafe in theory" but "safe in practice" (especially if you set
-            "Importance of theoretical safety" to 0%), you will never encounter
-            some weights which are "safe in theory" but "unsafe in practice".
-          </p>
-          <p>
-            This is a useful property because calculating whether the model is
-            "safe in theory" is cheap (proportional to the number of weights),
-            while calculating whether the model is "safe in practice" is
-            expensive (the number of inputs in the top row is exponential in
-            the number of inputs bits). This demo only has 16 inputs in the top
-            row, so that we can compare the result of the static analysis with
-            the ground truth, but you can easily imagine a generalization of
-            this experiment with more bits where it would only be feasible to
-            calculate whether the model is
-            "safe in theory".
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Features Column -->
-    <div class="column features">
-      <div class="header-wrapper">
-        <div class="section-header">
-          <h4>Weights</h4>
-          <div class="collapse-button">▼</div>
-        </div>
-      </div>
-      <div class="content-wrapper">
-        <div class="section-content">
-          <!-- Hidden Layers Controls -->
-          <div class="ui-numHiddenLayers">
-            <button id="add-layers" class="mdl-button mdl-js-button mdl-button--icon">
-              <i class="material-icons">add</i>
-            </button>
-            <button id="remove-layers" class="mdl-button mdl-js-button mdl-button--icon">
-              <i class="material-icons">remove</i>
-            </button>
-            <span id="num-layers"></span>
-            <span id="layers-label"></span>
-          </div>
-          <div id="network">
-            <svg id="svg" width="510" height="450">
-              <defs>
-                <marker id="markerArrow" markerWidth="7" markerHeight="13" refX="1" refY="6" orient="auto" markerUnits="userSpaceOnUse">
-                  <path d="M2,11 L7,6 L2,2" />
-                </marker>
-              </defs>
-            </svg>
-            <!-- Hover card -->
-            <div id="hovercard">
-              <div style="font-size:10px">Click anywhere to edit.</div>
-              <div><span class="type">Weight/Bias</span> is <span class="value">0.2</span><span><input type="number"/></span>.</div>
-            </div>
-            <div class="callout thumbnail">
-              <svg viewBox="0 0 30 30">
-                <defs>
-                  <marker id="arrow" markerWidth="5" markerHeight="5" refx="5" refy="2.5" orient="auto" markerUnits="userSpaceOnUse">
-                    <path d="M0,0 L5,2.5 L0,5 z"/>
-                  </marker>
-                </defs>
-                <path d="M12,30C5,20 2,15 12,0" marker-end="url(#arrow)">
-              </svg>
-              <div class="label">
-                This is the output from one <b>neuron</b>. Hover to see it larger.
-              </div>
-            </div>
-            <div class="callout weights">
-              <svg viewBox="0 0 30 30">
-                <defs>
-                  <marker id="arrow" markerWidth="5" markerHeight="5" refx="5" refy="2.5" orient="auto" markerUnits="userSpaceOnUse">
-                    <path d="M0,0 L5,2.5 L0,5 z"/>
-                  </marker>
-                </defs>
-                <path d="M12,30C5,20 2,15 12,0" marker-end="url(#arrow)">
-              </svg>
-              <div class="label">
-                The outputs are mixed with varying <b>weights</b>, shown by the thickness of the lines.
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Output Column -->
     <div class="column output">
-      <div class="header-wrapper">
-        <div class="section-header">
-          <h4>Output</h4>
-          <div class="collapse-button">▼</div>
-        </div>
-      </div>
       <div class="content-wrapper">
         <div class="section-content">
           <div class="metrics">
@@ -305,46 +82,8 @@ limitations under the License.
               <span>Training loss</span>
               <div class="value" id="loss-train"></div>
             </div>
-            <div id="practice-safety-container"></div>
             <div id="linechart"></div>
           </div>
-          <div id="heatmap"></div>
-          <div style="float:left;margin-left:10px">
-            <div style="display:flex; align-items:center;">
-
-              <!-- Gradient color scale -->
-              <div class="label" style="width:105px; margin-right: 10px">
-                Colors shows data, neuron and weight values.
-              </div>
-              <svg width="150" height="30" id="colormap">
-                <defs>
-                  <linearGradient id="gradient" x1="0%" y1="100%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="#f59322" stop-opacity="1"></stop>
-                    <stop offset="50%" stop-color="#e8eaeb" stop-opacity="1"></stop>
-                    <stop offset="100%" stop-color="#0877bd" stop-opacity="1"></stop>
-                  </linearGradient>
-                </defs>
-                <g class="core" transform="translate(3, 0)">
-                  <rect width="144" height="10" style="fill: url('#gradient');"></rect>
-                </g>
-              </svg>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CODE Column -->
-    <div class="column code">
-      <div class="header-wrapper">
-        <div class="section-header">
-          <h4>CODE</h4>
-          <div class="collapse-button">▼</div>
-        </div>
-      </div>
-      <div class="content-wrapper">
-        <div class="section-content">
-          <pre id="code-display"></pre>
         </div>
       </div>
     </div>
