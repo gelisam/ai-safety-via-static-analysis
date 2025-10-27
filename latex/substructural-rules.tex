@@ -1,0 +1,26 @@
+\documentclass{article}
+\usepackage[paperwidth=8in,paperheight=3in,margin=0.5in]{geometry}
+\usepackage{mathtools}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{trfrac}
+\usepackage{mathpartir}
+
+\begin{document}
+\pagestyle{empty}
+
+\begin{mathpar}
+    \inferrule[Contraction]
+        { \Gamma, x:T, x:T \vdash \Delta }
+        { \Gamma, x:T \vdash \Delta }
+
+    \inferrule[Weakening]
+        { \Gamma \vdash \Delta }
+        { \Gamma, x:T \vdash \Delta }
+
+    \inferrule[Exchange]
+        { \Gamma, x:T, y:U \vdash \Delta }
+        { \Gamma, y:U, x:T \vdash \Delta }
+\end{mathpar}
+
+\end{document}
