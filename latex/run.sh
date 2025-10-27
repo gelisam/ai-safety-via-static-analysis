@@ -4,7 +4,7 @@ set -e
 clear
 
 # List of all LaTeX files
-FILES=("syntactic-categories" "example-program" "judgments-and-rules" "context-validity" "range-analysis" "backprop" "substructural-rules")
+FILES=("syntactic-categories" "example-program" "judgments-and-rules" "context-validity" "range-analysis" "backprop" "backprop-range" "substructural-rules")
 
 # Function to convert a single file
 convert_file() {
