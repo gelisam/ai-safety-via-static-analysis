@@ -774,6 +774,11 @@ g.column rect {
   opacity: 1.0;
 }
 
+#network .node.selected rect {
+  stroke: black;
+  stroke-width: 2;
+}
+
 @-webkit-keyframes flowing {
   from { stroke-dashoffset: 0; } to { stroke-dashoffset: -10; }
 }

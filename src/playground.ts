@@ -304,7 +304,8 @@ state.getHiddenProps().forEach(prop => {
 });
 
 let boundary: {[id: string]: number[][]} = {};
-let selectedNodeId: string = null;
+let hoveredNodeId: string = null;
+let selectedNodeIds = new Set<string>();
 // Plot the heatmap.
 let xDomain: [number, number] = [-5.3, 5.3];
 let heatMap =
@@ -512,6 +513,62 @@ function updateWeightsUI(network: nn.Node[][], container) {
   }
 }
 
+function updateDecisionBoundary(network: nn.Node[][], firstTime: boolean) {
+  if (firstTime) {
+    boundary = {};
+    nn.forEachNode(network, false, node => {
+      boundary[node.id] = new Array(DENSITY);
+    });
+  }
+
+  // Find the layer of each node
+  let node2layer = new Map<string, number>();
+  for (let layerIdx = 0; layerIdx < network.length; layerIdx++) {
+    for (const node of network[layerIdx]) {
+      node2layer.set(node.id, layerIdx);
+    }
+  }
+
+  let xScale = d3.scale.linear().domain([0, DENSITY - 1]).range(xDomain);
+  let yScale = d3.scale.linear().domain([DENSITY - 1, 0]).range(xDomain);
+
+  let i = 0, j = 0;
+  for (i = 0; i < DENSITY; i++) {
+    if (firstTime) {
+      nn.forEachNode(network, false, node => {
+        boundary[node.id][i] = new Array(DENSITY);
+      });
+    }
+    for (j = 0; j < DENSITY; j++) {
+      let x = xScale(i);
+      let y = yScale(j);
+      let input = constructInput(x, y);
+      nn.forwardProp(network, input);
+      nn.forEachNode(network, false, node => {
+        boundary[node.id][i][j] = node.output;
+      });
+      if (selectedNodeIds.size > 0 && hoveredNodeId) {
+        let hoveredLayer = node2layer.get(hoveredNodeId);
+        let totalDeriv = 0;
+        for (const selected of selectedNodeIds) {
+            let tweak = new Map<string, number>();
+            let selectedLayer = node2layer.get(selected);
+            if (selectedLayer > hoveredLayer) { // Hovered is BEFORE selected. User wants d(S)/d(H).
+                tweak.set(selected, 1);
+                let deriv = nn.backPropDeriv(network, tweak);
+                totalDeriv += deriv.get(hoveredNodeId);
+            } else { // Hovered is AFTER selected. User wants d(H)/d(S).
+                tweak.set(selected, 1);
+                let deriv = nn.forwardPropDeriv(network, tweak);
+                totalDeriv += deriv.get(hoveredNodeId);
+            }
+        }
+        boundary[hoveredNodeId][i][j] = totalDeriv;
+      }
+    }
+  }
+}
+
 let isHovercardBeingEdited = false;
 
 function drawNode(cx: number, cy: number, nodeId: string, isInput: boolean,
@@ -600,18 +657,43 @@ function drawNode(cx: number, cy: number, nodeId: string, isInput: boolean,
       top: `${y + 3}px`
     })
     .on("mouseenter", function() {
-      selectedNodeId = nodeId;
+      hoveredNodeId = nodeId;
       div.classed("hovered", true);
       nodeGroup.classed("hovered", true);
       updateDecisionBoundary(network, false);
-      heatMap.updateBackground(boundary[nodeId]);
+      if (selectedNodeIds.size > 0) {
+        let max = 0;
+        for (let i = 0; i < DENSITY; i++) {
+          for (let j = 0; j < DENSITY; j++) {
+            max = Math.max(max, Math.abs(boundary[hoveredNodeId][i][j]));
+          }
+        }
+        heatMap.updateColorScale([-max, 0, max]);
+        heatMap.updateBackground(boundary[hoveredNodeId]);
+      } else {
+        heatMap.updateBackground(boundary[nodeId]);
+      }
     })
     .on("mouseleave", function() {
-      selectedNodeId = null;
+      hoveredNodeId = null;
       div.classed("hovered", false);
       nodeGroup.classed("hovered", false);
+      heatMap.restoreDefaultColorScale();
       updateDecisionBoundary(network, false);
       heatMap.updateBackground(boundary[nn.getOutputNode(network).id]);
+    })
+    .on("click", function() {
+      if ((d3.event as MouseEvent).ctrlKey) {
+        if (selectedNodeIds.has(nodeId)) {
+          selectedNodeIds.delete(nodeId);
+          nodeGroup.classed("selected", false);
+        } else {
+          selectedNodeIds.add(nodeId);
+          nodeGroup.classed("selected", true);
+        }
+        updateDecisionBoundary(network, false);
+        heatMap.updateBackground(boundary[nn.getOutputNode(network).id]);
+      }
     });
   if (isInput) {
     div.classed("active", true);
@@ -891,49 +973,6 @@ function drawLink(
  * It returns a map where each key is the node ID and the value is a square
  * matrix of the outputs of the network for each input in the grid respectively.
  */
-function updateDecisionBoundary(network: nn.Node[][], firstTime: boolean) {
-  if (firstTime) {
-    boundary = {};
-    nn.forEachNode(network, true, node => {
-      boundary[node.id] = new Array(DENSITY);
-    });
-    // Go through all predefined inputs.
-    for (let nodeId in INPUTS) {
-      boundary[nodeId] = new Array(DENSITY);
-    }
-  }
-  let xScale = d3.scale.linear().domain([0, DENSITY - 1]).range(xDomain);
-  let yScale = d3.scale.linear().domain([DENSITY - 1, 0]).range(xDomain);
-
-  let i = 0, j = 0;
-  for (i = 0; i < DENSITY; i++) {
-    if (firstTime) {
-      nn.forEachNode(network, true, node => {
-        boundary[node.id][i] = new Array(DENSITY);
-      });
-      // Go through all predefined inputs.
-      for (let nodeId in INPUTS) {
-        boundary[nodeId][i] = new Array(DENSITY);
-      }
-    }
-    for (j = 0; j < DENSITY; j++) {
-      // 1 for points inside the circle, and 0 for points outside the circle.
-      let x = xScale(i);
-      let y = yScale(j);
-      let input = constructInput(x, y);
-      nn.forwardProp(network, input);
-      nn.forEachNode(network, true, node => {
-        boundary[node.id][i][j] = node.output;
-      });
-      if (firstTime) {
-        // Go through all predefined inputs.
-        for (let nodeId in INPUTS) {
-          boundary[nodeId][i][j] = INPUTS[nodeId].f(x, y);
-        }
-      }
-    }
-  }
-}
 
 function getLoss(network: nn.Node[][], dataPoints: Example2D[]): number {
   let loss = 0;
@@ -953,9 +992,9 @@ function updateUI(firstStep = false) {
   updateBiasesUI(network);
   // Get the decision boundary of the network.
   updateDecisionBoundary(network, firstStep);
-  let selectedId = selectedNodeId != null ?
-      selectedNodeId : nn.getOutputNode(network).id;
-  heatMap.updateBackground(boundary[selectedId]);
+  let hoveredId = hoveredNodeId != null ?
+      hoveredNodeId : nn.getOutputNode(network).id;
+  heatMap.updateBackground(boundary[hoveredId]);
 
   // Create network wrapper with predict function for highlighting incorrect predictions
   let networkWrapper = {

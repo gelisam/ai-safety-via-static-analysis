@@ -45,6 +45,7 @@ export class HeatMap {
   private yScale;
   private numSamples: number;
   private color;
+  private defaultColor;
   private canvas;
   private svg;
   private topRowRect: d3.Selection<SVGElement>;
@@ -81,6 +82,7 @@ export class HeatMap {
     this.color = d3.scale.quantize()
                      .domain([-1, 1])
                      .range(colors);
+    this.defaultColor = this.color;
 
     container = container.append("div")
       .style({
@@ -167,6 +169,14 @@ export class HeatMap {
       }
     }
     context.putImageData(image, 0, 0);
+  }
+
+  updateColorScale(domain: [number, number, number]): void {
+    this.color.domain(domain);
+  }
+
+  restoreDefaultColorScale(): void {
+    this.color = this.defaultColor;
   }
 
   drawTopRowHighlight(allPoints: Example2D[], network?: PredictiveNetworkWrapper): void {
