@@ -80,3 +80,7 @@ To run the project locally, run:
 For a fast edit-refresh cycle when developing run `npm run serve-watch`.
 This will start an http server and automatically re-compile the TypeScript
 (but not the HTML and CSS files) whenever they change.
+
+## Credits
+
+Built by Samuel Gélineau on top of the [Tensorflow Playground](https://playground.tensorflow.org/).
