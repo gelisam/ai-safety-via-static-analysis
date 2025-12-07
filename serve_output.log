@@ -1,0 +1,3 @@
+
+> interactive-deployment-demo@0.1.0 watch
+> cross-env NODE_ENV=development parcel index.html --no-hmr --open
