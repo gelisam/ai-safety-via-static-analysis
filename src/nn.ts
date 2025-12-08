@@ -37,6 +37,8 @@ export class Node {
 
   /** relu(preActivation), or whatever is the activation function */
   output: number;
+  /** Derivative of the output with respect to the tweaked input. */
+  outputDeriv: number;
   /** Range of possible values for relu(preActivationRange), or whatever is the activation function. */
   outputRange: Range;
 
@@ -222,6 +224,37 @@ export function forwardProp(network: Node[][], inputs: number[]): Node {
 }
 
 /**
+ * Runs a forward propagation of the derivatives through the provided
+ * network. This method modifies the internal state of the network - the
+ * pre-activation and output derivatives of each node in the network.
+ *
+ * @param network The neural network.
+ * @param inputs The input array. Its length should match the number of input
+ *     nodes in the network.
+ * @return The output node.
+ */
+export function forwardPropDeriv(network: Node[][],
+    tweak: Map<string, number>): Map<string, number> {
+  for (let layerIdx = 0; layerIdx < network.length; layerIdx++) {
+    for (const node of network[layerIdx]) {
+      let propagatedDeriv = 0;
+      if (layerIdx > 0) {
+        let preActivationDeriv = 0;
+        for (const link of node.inputLinks) {
+          preActivationDeriv += link.weight * link.source.outputDeriv;
+        }
+        propagatedDeriv = node.activation.der(node.preActivation) * preActivationDeriv;
+      }
+      node.outputDeriv = (tweak.has(node.id) ? tweak.get(node.id) : 0) + propagatedDeriv;
+    }
+  }
+
+  let allDerivs = new Map<string, number>();
+  forEachNode(network, false, node => allDerivs.set(node.id, node.outputDeriv));
+  return allDerivs;
+}
+
+/**
  * Runs a backward propagation using the provided target and the
  * computed output of the previous call to forward propagation.
  * This method modifies the internal state of the network - the error
@@ -284,6 +317,48 @@ export function backProp(network: Node[][], target: number,
       }
     }
   }
+}
+
+/**
+ * Runs a backward propagation of the derivatives through the provided
+ * network.
+ *
+ * @param network The neural network.
+ * @param tweak A map from node id to the derivative of the tweak wrt the
+ *     output of that node.
+ * @return A map from node id to the derivative of the tweak wrt the
+ *     output of that node.
+ */
+export function backPropDeriv(network: Node[][],
+    tweak: Map<string, number>): Map<string, number> {
+  let tweakedDerivs = new Map<string, number>();
+  for (let layerIdx = network.length - 1; layerIdx >= 1; layerIdx--) {
+    const currentLayer = network[layerIdx];
+    for (let i = 0; i < currentLayer.length; i++) {
+      const node = currentLayer[i];
+      let desiredDeltaOutput = 0;
+      if (tweak.has(node.id)) {
+        desiredDeltaOutput += tweak.get(node.id);
+      }
+      if (tweakedDerivs.has(node.id)) {
+        desiredDeltaOutput += tweakedDerivs.get(node.id);
+      }
+
+      const outputWrtPreActivation = node.activation.der(node.preActivation);
+      const desiredDeltaPreActivation = desiredDeltaOutput * outputWrtPreActivation;
+
+      for (let j = 0; j < node.inputLinks.length; j++) {
+        const link = node.inputLinks[j];
+        const contributionWrtInput = link.weight;
+        const desiredDeltaInput = desiredDeltaPreActivation * contributionWrtInput;
+        const sourceNode = link.source;
+        let sourceDeriv = tweakedDerivs.has(sourceNode.id) ? tweakedDerivs.get(sourceNode.id) : 0;
+        sourceDeriv += desiredDeltaInput;
+        tweakedDerivs.set(sourceNode.id, sourceDeriv);
+      }
+    }
+  }
+  return tweakedDerivs;
 }
 
 export function backPropRanges(network: Node[][], target: Range,
