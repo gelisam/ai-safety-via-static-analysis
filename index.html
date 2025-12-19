@@ -68,21 +68,10 @@ limitations under the License.
         <span class="value" id="iter-number"></span>
       </div>
       <div class="control ui-learningRate">
-        <label for="learningRate">Learning rate</label>
-        <div id="learning-rate-value-container" class="value-container">
-          <div id="learning-rate-values">
-            <div>10</div>
-            <div>3</div>
-            <div>1</div>
-            <div>0.3</div>
-            <div>0.1</div>
-            <div>0.03</div>
-            <div>0.01</div>
-            <div>0.003</div>
-            <div>0.001</div>
-            <div>0.0001</div>
-            <div>0.00001</div>
-          </div>
+        <label for="learningRateSlider">Learning rate</label>
+        <div style="display: flex; align-items: center;">
+          <input type="range" id="learningRateSlider" min="0" max="10" step="1" value="3" class="ui-slider">
+          <span id="learningRateValue" style="margin-left: 10px; width: 50px;">0.3</span>
         </div>
       </div>
       <div class="control ui-safety-importance">
@@ -90,7 +79,7 @@ limitations under the License.
           Importance of theoretical safety
         </label>
         <div style="display: flex; align-items: center;">
-          <input type="range" id="safetySlider" min="0" max="2" step="0.1" value="1" class="ui-slider">
+          <input type="range" id="safetySlider" min="0" max="10" step="1" value="1" class="ui-slider">
           <span id="safetyValue" style="margin-left: 10px; width: 30px;">0%</span>
         </div>
       </div>

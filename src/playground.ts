@@ -328,7 +328,7 @@ let player = new Player();
 let lineChart = new AppendingLineChart(d3.select("#linechart"),
     ["#777"]); // Only one color for training loss
 let recentTrainLosses: number[] = [];
-const LEARNING_RATES = [10, 3, 1, 0.3, 0.1, 0.03, 0.01, 0.003, 0.001, 0.0001, 0.00001];
+const LEARNING_RATES = [0.00001, 0.0001, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1, 3, 10];
 
 function enableFeaturesForDataset() {
   // Set network shape for parity: two layers of 8 neurons each
@@ -348,32 +348,6 @@ function updateCodeDisplay() {
     // Warning: element might not be ready in very early stages or if HTML changes.
     // For this specific project, it should generally be available once UI is built.
   }
-}
-
-function updateLearningRateDisplay(newRate: number, highlight = true) {
-    const learningRateValues = document.getElementById('learning-rate-values');
-    if (!learningRateValues) return;
-
-    const learningRates = Array.from(learningRateValues.children).map(d => parseFloat(d.innerHTML));
-    const newIndex = learningRates.indexOf(newRate);
-
-    if (newIndex !== -1) {
-        const currentTransform = learningRateValues.style.transform;
-        const newTransform = `translateY(-${newIndex * 20}px)`;
-
-        if (currentTransform === newTransform) {
-            return;
-        }
-
-        learningRateValues.style.transform = newTransform;
-
-        if (highlight) {
-            learningRateValues.classList.add('highlight');
-            setTimeout(() => {
-                learningRateValues.classList.remove('highlight');
-            }, 1200);
-        }
-    }
 }
 
 function makeGUI() {
@@ -438,6 +412,15 @@ function makeGUI() {
     reset();
   });
 
+
+  let learningRateSlider = d3.select("#learningRateSlider").on("input", function() {
+    state.learningRate = LEARNING_RATES[+this.value];
+    d3.select("#learningRateValue").text(state.learningRate);
+    state.serialize();
+    userHasInteracted();
+  });
+  learningRateSlider.property("value", LEARNING_RATES.indexOf(state.learningRate));
+  d3.select("#learningRateValue").text(state.learningRate);
 
   let safetySlider = d3.select("#safetySlider").on("input", function() {
     state.safetyImportance = +this.value / 100;
@@ -758,7 +741,7 @@ function addPlusMinusControl(x: number, layerIdx: number) {
       .attr("class", "mdl-button mdl-js-button mdl-button--icon")
       .on("click", () => {
         let numNeurons = state.networkShape[i];
-        if (numNeurons >= 8) {
+        if (numNeurons >= 16) {
           return;
         }
         state.networkShape[i]++;
@@ -1097,19 +1080,6 @@ function constructInput(x: number, y: number): number[] {
   return input;
 }
 
-function updateLearningRate(loss: number) {
-  if (loss <= 0.10) {
-    state.learningRate = 0.01;
-  } else if (loss <= 0.25) {
-    state.learningRate = 0.03;
-  } else if (loss <= 0.40) {
-    state.learningRate = 0.1;
-  } else {
-    state.learningRate = 0.3;
-  }
-  updateLearningRateDisplay(state.learningRate);
-}
-
 function oneStep(): void {
   iter++;
   shuffle(trainData);
@@ -1134,7 +1104,6 @@ function oneStep(): void {
   // Compute the loss.
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
-  updateLearningRate(lossTrain);
 
   // Update the ranges one last time to match the updated weights.
   nn.forwardPropRanges(network, BIT_RANGES);
@@ -1164,9 +1133,6 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
   }
   player.pause();
 
-  // Set learning rate to 0.3 and update UI
-  state.learningRate = 0.3;
-  updateLearningRateDisplay(state.learningRate, false);
   recentTrainLosses = []; // Also clear recent losses on reset
 
 
@@ -1258,7 +1224,6 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
 
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
-  updateLearningRate(lossTrain);
   // Update node ranges after network initialization or weight hardcoding
   nn.forwardPropRanges(network, BIT_RANGES);
   drawNetwork(network);
