@@ -324,6 +324,9 @@ let testData: Example2D[] = [];
 let network: nn.Node[][] = null;
 let lossTrain = 0;
 let lossTest = 0;
+let minLoss = Number.MAX_VALUE;
+let epochsSinceMinLoss = 0;
+const stoppingConditionEpochs = 50;
 let player = new Player();
 let lineChart = new AppendingLineChart(d3.select("#linechart"),
     ["#777"]); // Only one color for training loss
@@ -477,6 +480,15 @@ function makeGUI() {
 
   // Initial display of the seed
   updateSeedDisplay();
+
+  // Fast updates checkbox
+  const fastUpdatesCheckbox = d3.select("#fast-updates-checkbox");
+  fastUpdatesCheckbox.property("checked", state.fastUpdates);
+  fastUpdatesCheckbox.on("change", function() {
+    state.fastUpdates = this.checked;
+    state.serialize();
+    userHasInteracted();
+  });
 }
 
 function updateSeedDisplay() {
@@ -947,6 +959,29 @@ function getLoss(network: nn.Node[][], dataPoints: Example2D[]): number {
 }
 
 function updateUI(firstStep = false) {
+  function zeroPad(n: number): string {
+    let pad = "000000";
+    return (pad + n).slice(-pad.length);
+  }
+
+  function addCommas(s: string): string {
+    return s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  function humanReadable(n: number): string {
+    return n.toFixed(3);
+  }
+
+  // Update loss, iteration number and loss chart.
+  d3.select("#loss-train").text(humanReadable(lossTrain));
+  d3.select("#iter-number").text(addCommas(zeroPad(iter)));
+  lineChart.addDataPoint([lossTrain]);
+
+  // Conditionally skip the rest of the UI updates for performance.
+  if (state.fastUpdates && !firstStep) {
+    return;
+  }
+
   // Update the links visually.
   updateWeightsUI(network, d3.select("g.core"));
   // Update the bias values visually.
@@ -982,23 +1017,6 @@ function updateUI(firstStep = false) {
   // The networkWrapper created earlier in updateUI has the .predict method
   heatMap.drawTopRowHighlight(allVisiblePoints, networkWrapper);
 
-  function zeroPad(n: number): string {
-    let pad = "000000";
-    return (pad + n).slice(-pad.length);
-  }
-
-  function addCommas(s: string): string {
-    return s.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  }
-
-  function humanReadable(n: number): string {
-    return n.toFixed(3);
-  }
-
-  // Update loss and iteration number.
-  d3.select("#loss-train").text(humanReadable(lossTrain));
-  // d3.select("#loss-test").text(humanReadable(lossTest)); // Removed
-  d3.select("#iter-number").text(addCommas(zeroPad(iter)));
   updateCodeDisplay(); // Update code display whenever UI refreshes
 
   // Handle "unsafe in practice" box
@@ -1077,8 +1095,6 @@ function updateUI(firstStep = false) {
         sectionContent.appendChild(theorySafetyBox);
     }
   }
-
-  lineChart.addDataPoint([lossTrain]); // Only add training loss
 }
 
 function constructInputIds(): string[] {
@@ -1110,6 +1126,69 @@ function updateLearningRate(loss: number) {
   updateLearningRateDisplay(state.learningRate);
 }
 
+function getMisclassifiedCount(): number {
+  let misclassified = 0;
+  // All data is used for training, so we can just use trainData.
+  for (const point of trainData) {
+    const input = constructInput(point.x, point.y);
+    const output = nn.forwardProp(network, input).output;
+    const prediction = output >= 0 ? 1 : -1;
+    if (prediction !== point.label) {
+      misclassified++;
+    }
+  }
+  return misclassified;
+}
+
+function getIsSafeInPractice(): boolean {
+  let isUnsafe = false;
+  // All data is used for training.
+  for (const point of trainData) {
+    const input = constructInput(point.x, point.y);
+    const isEmergencyStop = input.slice(0, 4).every(bit => bit === 1);
+    if (isEmergencyStop) {
+      const output = nn.forwardProp(network, input).output;
+      const prediction = output >= 0 ? 1 : -1;
+      if (prediction === 1) {
+        isUnsafe = true;
+        break;
+      }
+    }
+  }
+  return !isUnsafe;
+}
+
+function getIsSafeInTheory(): boolean {
+  const outputNode = nn.getOutputNode(network);
+  return outputNode.outputRange[1] < 0.0;
+}
+
+function getOutputRange(): [number, number] {
+    const outputNode = nn.getOutputNode(network);
+    if (outputNode && outputNode.outputRange) {
+        return outputNode.outputRange;
+    }
+    return [0, 0]; // Should not happen if network is trained
+}
+
+function reportTrainingComplete() {
+  const misclassifiedCount = getMisclassifiedCount();
+  const outputRange = getOutputRange();
+  const safeInPractice = getIsSafeInPractice();
+  const safeInTheory = getIsSafeInTheory();
+
+  const reportMessage = [
+    "Training stopped: fixed point reached.",
+    "",
+    `i. The number of misclassified inputs: ${misclassifiedCount}`,
+    `ii. The calculated range of the output: [${formatNumber(outputRange[0])}, ${formatNumber(outputRange[1])}]`,
+    `iii. Whether the model is safe in practice: ${safeInPractice}`,
+    `iv. Whether the model is safe in theory: ${safeInTheory}`
+  ].join("\n");
+
+  alert(reportMessage);
+}
+
 function oneStep(): void {
   iter++;
   shuffle(trainData);
@@ -1135,6 +1214,22 @@ function oneStep(): void {
   lossTrain = getLoss(network, trainData);
   lossTest = getLoss(network, testData);
   updateLearningRate(lossTrain);
+
+  // Check for early stopping condition.
+  const roundedLoss = parseFloat(lossTrain.toFixed(3));
+  if (roundedLoss < minLoss) {
+    minLoss = roundedLoss;
+    epochsSinceMinLoss = 0;
+  } else {
+    epochsSinceMinLoss++;
+  }
+
+  if (epochsSinceMinLoss >= stoppingConditionEpochs) {
+    player.pause();
+    reportTrainingComplete();
+    // Reset to avoid repeated alerts if the user continues stepping.
+    epochsSinceMinLoss = 0;
+  }
 
   // Update the ranges one last time to match the updated weights.
   nn.forwardPropRanges(network, BIT_RANGES);
@@ -1163,6 +1258,10 @@ function reset(onStartup=false, hardcodeWeightsOption?:boolean) { // hardcodeWei
     userHasInteracted();
   }
   player.pause();
+
+  // Reset early stopping variables
+  minLoss = Number.MAX_VALUE;
+  epochsSinceMinLoss = 0;
 
   // Set learning rate to 0.3 and update UI
   state.learningRate = 0.3;
